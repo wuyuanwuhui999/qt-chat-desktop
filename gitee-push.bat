@@ -10,7 +10,7 @@ echo 检查远程仓库地址...
 git remote get-url origin >nul 2>nul
 if errorlevel 1 (
     echo 未设置远程仓库，正在设置...
-    git remote add origin git@gitee.com:wuyuanwuhui99/springboot3-app-service.git
+    git remote add origin git@gitee.com:wuyuanwuhui99/qt-chat-desktop.git
 ) else (
     echo 当前远程地址：
     git remote get-url origin

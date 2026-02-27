@@ -3,14 +3,12 @@
 
 #include <QMainWindow>
 #include <QSplitter>
-
-// 包含子控件头文件
-#include "LeftPanel.h"
-#include "RightPanel.h"
+#include "ui/LeftPanel.h"
+#include "ui/RightPanel.h"
 
 class MainWindow : public QMainWindow
 {
-    Q_OBJECT  // 👈 添加这个！否则无法正确链接！
+    Q_OBJECT
 
 public:
     explicit MainWindow(QWidget *parent = nullptr);

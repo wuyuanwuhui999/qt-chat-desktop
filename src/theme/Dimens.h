@@ -16,7 +16,7 @@ namespace Dimens {
     // 头像尺寸
     const int SMALL_AVATAR = 30;             // 30dp
     const int MIDDLE_AVATAR = 40;            // 40dp
-    const int BIG_AVATAR = 60;               // 60dp
+    const int BIG_AVATAR = 100;               // 60dp
     
     // 图标尺寸
     const int SMALL_ICON_SIZE = 15;          // 15dp
@@ -54,6 +54,7 @@ namespace Dimens {
     // 字体大小 (以像素为单位，实际使用时需要根据DPI转换)
     const int FONT_SIZE_NORMAL = 14;           // 14sp
     const int FONT_SIZE_BIG = 20;              // 20sp
+    const int FONT_SIZE_XL = 40;
 }
 
 #endif // DIMENS_H

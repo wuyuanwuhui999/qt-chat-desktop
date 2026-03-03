@@ -14,6 +14,9 @@ const QString USER_KEY = "user_data";
 // API 端点
 namespace Endpoints {
     const QString GET_USER_DATA = "/service/user/getUserData";
+    const QString PASSWORD_LOGIN = "/service/user/login";
+    const QString SEND_EMAIL_CODE = "/service/user/sendEmailVertifyCode";
+    const QString EMAIL_LOGIN = "/service/user/loginByEmail";
     // 其他端点...
     }
 }

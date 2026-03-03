@@ -1,17 +1,7 @@
 #include "LoginWindow.h"
 #include "theme/Colors.h"
 #include "theme/Dimens.h"
-#include "network/NetworkManager.h"
-#include "utils/TokenManager.h"
-#include <QMessageBox>
-#include <QRegularExpression>
-#include <QRegularExpressionValidator>
-#include <QMovie>
-#include <QTimer>
-
-#include "LoginWindow.h"
-#include "theme/Colors.h"
-#include "theme/Dimens.h"
+#include "config/Constants.h"
 #include "network/NetworkManager.h"
 #include "utils/TokenManager.h"
 #include <QMessageBox>
@@ -21,9 +11,15 @@
 #include <QTimer>
 #include <QScreen>
 #include <QGuiApplication>
+#include <QPainter>
+#include <QTransform>
 
-LoginWindow::LoginWindow(QWidget *parent) : QWidget(parent), isLoading(false) {
-    // 不再设置固定大小，让窗口可以最大化
+LoginWindow::LoginWindow(QWidget *parent) 
+    : QWidget(parent), 
+      isLoading(false),
+      isSendingCode(false),
+      currentTabIndex(0) {
+    
     setStyleSheet(QString("background-color: %1;").arg(Colors::PAGE_BACKGROUND_COLOR.name()));
     
     setupUI();
@@ -41,7 +37,7 @@ void LoginWindow::setupUI() {
     
     // 登录框容器 - 固定大小，不随窗口变化
     loginContainer = new QWidget(this);
-    loginContainer->setFixedSize(400, 550);  // 稍微增加高度以容纳新按钮
+    loginContainer->setFixedSize(400, 500);
     
     // 设置容器样式（白色背景+圆角）
     loginContainer->setStyleSheet(
@@ -93,15 +89,15 @@ void LoginWindow::setupUI() {
     // 页签指示器
     tabIndicator = new QWidget(loginContainer);
     tabIndicator->setFixedHeight(Dimens::STROKE_WIDTH);
-    tabIndicator->setStyleSheet(QString("background-color: %1;").arg(Colors::PRIMARY_COLOR.name()));
+    tabIndicator->setStyleSheet("background-color: transparent;"); // 初始透明
     
     // 堆叠窗口
     stackedWidget = new QStackedWidget(loginContainer);
-    stackedWidget->setFixedHeight(200);  // 固定高度
+    stackedWidget->setFixedHeight(200);
     
     // 创建loading标签（用于显示加载动画）
     loadingLabel = new QLabel(loginContainer);
-    loadingMovie = new QMovie(":/resources/images/loading.gif", QByteArray(), this);
+    loadingMovie = new QMovie(":/resources/images/loading.png", QByteArray(), this);
     loadingLabel->setMovie(loadingMovie);
     loadingLabel->setFixedSize(20, 20);
     loadingLabel->setVisible(false);
@@ -183,16 +179,13 @@ void LoginWindow::setupUI() {
     containerLayout->addLayout(forgotLayout);
     
     mainLayout->addWidget(loginContainer);
-    
-    // 确保登录框在窗口中心
-    // 由于窗口最大化，布局会自动处理居中
 }
 
 void LoginWindow::setupPasswordLoginPanel() {
     passwordLoginPanel = new QWidget();
     QVBoxLayout* layout = new QVBoxLayout(passwordLoginPanel);
-    layout->setSpacing(Dimens::PAGE_PADDING);
-    layout->setContentsMargins(0, Dimens::PAGE_PADDING, 0, 0);
+    layout->setSpacing(Dimens::PAGE_PADDING);  // 设置输入框之间的间距
+    layout->setContentsMargins(0, Dimens::PAGE_PADDING, 0, 0);  // 设置顶部边距
     
     // 账号输入框
     usernameEdit = new QLineEdit(passwordLoginPanel);
@@ -240,11 +233,18 @@ void LoginWindow::setupPasswordLoginPanel() {
 void LoginWindow::setupEmailLoginPanel() {
     emailLoginPanel = new QWidget();
     QVBoxLayout* layout = new QVBoxLayout(emailLoginPanel);
-    layout->setSpacing(Dimens::PAGE_PADDING);
-    layout->setContentsMargins(0, Dimens::PAGE_PADDING, 0, 0);
+    layout->setSpacing(Dimens::PAGE_PADDING);  // 设置输入框之间的间距
+    layout->setContentsMargins(0, Dimens::PAGE_PADDING, 0, 0);  // 设置顶部边距
     
-    // 邮箱输入框
-    emailEdit = new QLineEdit(emailLoginPanel);
+    // 邮箱输入框（包含发送图标）
+    QWidget* emailContainer = new QWidget(emailLoginPanel);
+    emailContainer->setFixedHeight(Dimens::INPUT_HEIGHT);
+    
+    QHBoxLayout* emailContainerLayout = new QHBoxLayout(emailContainer);
+    emailContainerLayout->setContentsMargins(0, 0, 0, 0);
+    emailContainerLayout->setSpacing(0);
+    
+    emailEdit = new QLineEdit(emailContainer);
     emailEdit->setPlaceholderText("邮箱");
     emailEdit->setFixedHeight(Dimens::INPUT_HEIGHT);
     emailEdit->setStyleSheet(
@@ -252,6 +252,7 @@ void LoginWindow::setupEmailLoginPanel() {
         "   border: 1px solid " + Colors::DISABLE_COLOR.name() + ";"
         "   border-radius: " + QString::number(Dimens::INPUT_HEIGHT / 2) + "px;"
         "   padding: 0 15px;"
+        "   padding-right: 40px;"  // 为图标预留空间
         "   font-size: 14px;"
         "   background-color: white;"
         "}"
@@ -261,9 +262,27 @@ void LoginWindow::setupEmailLoginPanel() {
     );
     connect(emailEdit, &QLineEdit::textChanged, this, &LoginWindow::onEmailChanged);
     
-    // 验证码输入框和发送按钮的水平布局
-    codeLayout = new QHBoxLayout();
+    // 创建发送按钮（图标按钮）
+    sendCodeBtn = new QPushButton(emailContainer);
+    sendCodeBtn->setFixedSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE);
+    sendCodeBtn->setCursor(Qt::PointingHandCursor);
+    sendCodeBtn->setEnabled(false);
+    sendCodeBtn->setStyleSheet(
+        "QPushButton {"
+        "   background-color: transparent;"
+        "   border: none;"
+        "   icon: url(:/resources/images/icon_send.png);"
+        "   icon-size: " + QString::number(Dimens::SMALL_ICON_SIZE) + "px;"
+        "}"
+    );
+    connect(sendCodeBtn, &QPushButton::clicked, this, &LoginWindow::onSendCodeClicked);
     
+    // 将按钮放在输入框容器的最右边
+    emailContainerLayout->addWidget(emailEdit);
+    emailContainerLayout->addWidget(sendCodeBtn);
+    emailContainerLayout->setAlignment(sendCodeBtn, Qt::AlignRight | Qt::AlignVCenter);
+    
+    // 验证码输入框
     codeEdit = new QLineEdit(emailLoginPanel);
     codeEdit->setPlaceholderText("验证码");
     codeEdit->setFixedHeight(Dimens::INPUT_HEIGHT);
@@ -281,37 +300,42 @@ void LoginWindow::setupEmailLoginPanel() {
     );
     connect(codeEdit, &QLineEdit::textChanged, this, &LoginWindow::onCodeChanged);
     
-    sendCodeBtn = new QPushButton("发送", emailLoginPanel);
-    sendCodeBtn->setFixedSize(80, Dimens::INPUT_HEIGHT);
-    sendCodeBtn->setCursor(Qt::PointingHandCursor);
-    sendCodeBtn->setEnabled(false);
-    sendCodeBtn->setStyleSheet(
-        "QPushButton {"
-        "   background-color: " + Colors::DISABLE_COLOR.name() + ";"
-        "   color: white;"
-        "   border: none;"
-        "   border-radius: " + QString::number(Dimens::INPUT_HEIGHT / 2) + "px;"
-        "   font-size: 14px;"
-        "}"
-    );
-    connect(sendCodeBtn, &QPushButton::clicked, this, &LoginWindow::onSendCodeClicked);
-    
-    codeLayout->addWidget(codeEdit);
-    codeLayout->addWidget(sendCodeBtn);
-    
-    layout->addWidget(emailEdit);
-    layout->addLayout(codeLayout);
+    layout->addWidget(emailContainer);
+    layout->addWidget(codeEdit);
     
     stackedWidget->addWidget(emailLoginPanel);
+    
+    // 初始化发送按钮加载动画
+    sendButtonLoadingMovie = new QMovie(":/resources/images/loading.png", QByteArray(), this);
+    connect(sendButtonLoadingMovie, &QMovie::frameChanged, [this](int frame) {
+        if (isSendingCode) {
+            QPixmap pixmap = sendButtonLoadingMovie->currentPixmap();
+            // 旋转效果
+            QTransform transform;
+            transform.rotate(frame * 10);  // 每帧旋转10度
+            pixmap = pixmap.transformed(transform);
+            sendCodeBtn->setIcon(QIcon(pixmap));
+            sendCodeBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
+        }
+    });
 }
 
 void LoginWindow::updateTabIndicator(int index) {
+    currentTabIndex = index;
+    
     // 更新页签文字颜色
     QString activeStyle = "QPushButton { background: transparent; border: none; font-size: 16px; padding: 10px 20px; color: " + Colors::PRIMARY_COLOR.name() + "; }";
     QString inactiveStyle = "QPushButton { background: transparent; border: none; font-size: 16px; padding: 10px 20px; color: " + Colors::SUB_TITLE_COLOR.name() + "; }";
     
     passwordLoginTab->setStyleSheet(index == 0 ? activeStyle : inactiveStyle);
     emailLoginTab->setStyleSheet(index == 1 ? activeStyle : inactiveStyle);
+    
+    // 更新指示器颜色
+    if (index == 0) {
+        tabIndicator->setStyleSheet(QString("background-color: %1;").arg(Colors::PRIMARY_COLOR.name()));
+    } else {
+        tabIndicator->setStyleSheet("background-color: transparent;");
+    }
     
     // 移动指示器
     int tabWidth = loginContainer->width() / 2;
@@ -324,16 +348,39 @@ void LoginWindow::updateTabIndicator(int index) {
     animation->start(QPropertyAnimation::DeleteWhenStopped);
 }
 
-// ... 其余函数保持不变（onPasswordLoginTabClicked、onEmailLoginTabClicked等）
+void LoginWindow::startSendButtonLoading() {
+    isSendingCode = true;
+    sendCodeBtn->setStyleSheet("QPushButton { background-color: transparent; border: none; }");
+    sendButtonLoadingMovie->start();
+}
+
+void LoginWindow::stopSendButtonLoading() {
+    isSendingCode = false;
+    sendButtonLoadingMovie->stop();
+    sendCodeBtn->setStyleSheet(
+        "QPushButton {"
+        "   background-color: transparent;"
+        "   border: none;"
+        "   icon: url(:/resources/images/icon_send.png);"
+        "   icon-size: " + QString::number(Dimens::SMALL_ICON_SIZE) + "px;"
+        "}"
+    );
+}
 
 void LoginWindow::onPasswordLoginTabClicked() {
     stackedWidget->setCurrentIndex(0);
     updateTabIndicator(0);
+    
+    // 更新登录按钮状态
+    onUsernamePasswordChanged();
 }
 
 void LoginWindow::onEmailLoginTabClicked() {
     stackedWidget->setCurrentIndex(1);
     updateTabIndicator(1);
+    
+    // 更新登录按钮状态
+    onCodeChanged(codeEdit->text());
 }
 
 void LoginWindow::onUsernamePasswordChanged() {
@@ -368,31 +415,19 @@ void LoginWindow::onUsernamePasswordChanged() {
 
 void LoginWindow::onEmailChanged(const QString& email) {
     bool isValid = validateEmail(email);
-    sendCodeBtn->setEnabled(isValid);
     
-    if (isValid) {
+    if (isValid && !isSendingCode) {
+        sendCodeBtn->setEnabled(true);
         sendCodeBtn->setStyleSheet(
             "QPushButton {"
-            "   background-color: " + Colors::PRIMARY_COLOR.name() + ";"
-            "   color: white;"
+            "   background-color: transparent;"
             "   border: none;"
-            "   border-radius: " + QString::number(Dimens::INPUT_HEIGHT / 2) + "px;"
-            "   font-size: 14px;"
-            "}"
-            "QPushButton:hover {"
-            "   background-color: " + Colors::PRIMARY_COLOR.lighter(110).name() + ";"
+            "   icon: url(:/resources/images/icon_send.png);"
+            "   icon-size: " + QString::number(Dimens::SMALL_ICON_SIZE) + "px;"
             "}"
         );
     } else {
-        sendCodeBtn->setStyleSheet(
-            "QPushButton {"
-            "   background-color: " + Colors::DISABLE_COLOR.name() + ";"
-            "   color: white;"
-            "   border: none;"
-            "   border-radius: " + QString::number(Dimens::INPUT_HEIGHT / 2) + "px;"
-            "   font-size: 14px;"
-            "}"
-        );
+        sendCodeBtn->setEnabled(false);
     }
     
     // 检查验证码是否已输入
@@ -433,6 +468,8 @@ bool LoginWindow::validateEmail(const QString& email) {
 }
 
 void LoginWindow::onSendCodeClicked() {
+    if (isSendingCode) return;
+    
     QString email = emailEdit->text().trimmed();
     
     if (!validateEmail(email)) {
@@ -440,14 +477,19 @@ void LoginWindow::onSendCodeClicked() {
         return;
     }
     
+    // 开始加载动画
+    startSendButtonLoading();
+    
     // 发送验证码
     QJsonObject data;
     data["email"] = email;
     
     NetworkManager::instance().post(
-        "/service/user/sendEmailVertifyCode",
+        Constants::Endpoints::SEND_EMAIL_CODE,
         data,
         [this](const ApiResponse& response) {
+            stopSendButtonLoading();
+            
             if (response.isSuccess()) {
                 QMessageBox::information(this, "提示", "验证码已发送，请查收邮件");
                 
@@ -457,12 +499,10 @@ void LoginWindow::onSendCodeClicked() {
                 
                 connect(timer, &QTimer::timeout, [this, timer, countdown]() {
                     if (*countdown > 0) {
-                        sendCodeBtn->setText(QString("%1秒后重发").arg(*countdown));
                         sendCodeBtn->setEnabled(false);
                         (*countdown)--;
                     } else {
                         timer->stop();
-                        sendCodeBtn->setText("发送");
                         sendCodeBtn->setEnabled(true);
                         delete countdown;
                         timer->deleteLater();
@@ -475,6 +515,7 @@ void LoginWindow::onSendCodeClicked() {
             }
         },
         [this](const QString& error) {
+            stopSendButtonLoading();
             QMessageBox::warning(this, "提示", "网络错误：" + error);
         }
     );
@@ -524,7 +565,7 @@ void LoginWindow::performPasswordLogin() {
     data["password"] = password;
     
     NetworkManager::instance().post(
-        "/service/user/login",
+        Constants::Endpoints::PASSWORD_LOGIN,
         data,
         [this](const ApiResponse& response) {
             setLoading(false);
@@ -576,7 +617,7 @@ void LoginWindow::performEmailLogin() {
     data["code"] = code;
     
     NetworkManager::instance().post(
-        "/service/user/loginByEmail",
+        Constants::Endpoints::EMAIL_LOGIN,
         data,
         [this](const ApiResponse& response) {
             setLoading(false);

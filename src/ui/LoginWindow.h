@@ -19,7 +19,6 @@ public:
 
 signals:
     void loginSuccess();
-    void backToWelcome();  // 保留但不再使用
 
 private slots:
     void onPasswordLoginTabClicked();
@@ -39,6 +38,8 @@ private:
     void performPasswordLogin();
     void performEmailLogin();
     void setLoading(bool loading);
+    void startSendButtonLoading();
+    void stopSendButtonLoading();
     
     // 主布局
     QVBoxLayout* mainLayout;
@@ -49,6 +50,7 @@ private:
     QPushButton* passwordLoginTab;
     QPushButton* emailLoginTab;
     QWidget* tabIndicator;  // 页签指示器横线
+    int currentTabIndex;    // 当前选中的页签索引
     
     // 堆叠窗口
     QStackedWidget* stackedWidget;
@@ -64,6 +66,8 @@ private:
     QHBoxLayout* codeLayout;
     QLineEdit* codeEdit;
     QPushButton* sendCodeBtn;
+    QMovie* sendButtonLoadingMovie;
+    bool isSendingCode;
     
     // 公共按钮
     QPushButton* loginButton;

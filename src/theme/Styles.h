@@ -33,7 +33,7 @@ namespace Styles {
         .arg(Dimens::FONT_SIZE_NORMAL)
         .arg(Colors::PRIMARY_COLOR.lighter(110).name())
         .arg(Colors::PRIMARY_COLOR.darker(110).name())
-        .arg(Colors::DISABLE_TEXT_COLOR.name());
+        .arg(Colors::DISABLE_COLOR.name());
     }
     
     // 输入框样式

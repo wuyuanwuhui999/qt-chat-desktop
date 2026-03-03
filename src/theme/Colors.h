@@ -15,7 +15,7 @@ namespace Colors {
     // 界面颜色
     const QColor PAGE_BACKGROUND_COLOR = QColor(239, 239, 239);  // 0xFFEFEFEF
     const QColor MODULE_BACKGROUND_COLOR = QColor(255, 255, 255); // 0xFFFFFFFF
-    const QColor DISABLE_TEXT_COLOR = QColor(221, 221, 221);      // 0xFFDDDDDD
+    const QColor DISABLE_COLOR = QColor(221, 221, 221);      // 0xFFDDDDDD
     const QColor TAB_COLOR_ACTIVE = QColor(255, 174, 0);          // 0xFFFFAE00
     const QColor SEARCH_INPUT_COLOR = QColor(239, 239, 239);      // 0xFFEFEFEF
     const QColor SEARCH_INPUT_PLACEHOLD = QColor(221, 221, 221);  // 0xFFDDDDDD

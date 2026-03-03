@@ -26,7 +26,7 @@ LoginWindow::LoginWindow(QWidget *parent)
     setupPasswordLoginPanel();
     setupEmailLoginPanel();
     
-    // 默认显示密码登录页签
+    // 初始化显示密码登录页签
     onPasswordLoginTabClicked();
 }
 
@@ -55,10 +55,20 @@ void LoginWindow::setupUI() {
                                        Dimens::PAGE_PADDING * 2);
     
     // 页签布局
-    tabLayout = new QHBoxLayout();
-    tabLayout->setSpacing(0);
+    QHBoxLayout* tabContainerLayout = new QHBoxLayout();
+    tabContainerLayout->setSpacing(0);
+    tabContainerLayout->setContentsMargins(0, 0, 0, 0);
     
-    passwordLoginTab = new QPushButton("密码登录", loginContainer);
+    // 密码登录页签容器
+    QWidget* passwordTabContainer = new QWidget(loginContainer);
+    passwordTabContainer->setObjectName("passwordTabContainer");
+    passwordTabContainer->setStyleSheet("QWidget#passwordTabContainer { background-color: transparent; }");
+    
+    QVBoxLayout* passwordTabLayout = new QVBoxLayout(passwordTabContainer);
+    passwordTabLayout->setSpacing(0);
+    passwordTabLayout->setContentsMargins(0, 0, 0, 0);
+    
+    passwordLoginTab = new QPushButton("密码登录", passwordTabContainer);
     passwordLoginTab->setCursor(Qt::PointingHandCursor);
     passwordLoginTab->setStyleSheet(
         "QPushButton {"
@@ -69,7 +79,23 @@ void LoginWindow::setupUI() {
         "}"
     );
     
-    emailLoginTab = new QPushButton("验证码登录", loginContainer);
+    passwordTabIndicator = new QWidget(passwordTabContainer);
+    passwordTabIndicator->setFixedHeight(Dimens::STROKE_WIDTH);
+    passwordTabIndicator->setStyleSheet(QString("background-color: %1;").arg(Colors::PRIMARY_COLOR.name()));
+    
+    passwordTabLayout->addWidget(passwordLoginTab);
+    passwordTabLayout->addWidget(passwordTabIndicator);
+    
+    // 验证码登录页签容器
+    QWidget* emailTabContainer = new QWidget(loginContainer);
+    emailTabContainer->setObjectName("emailTabContainer");
+    emailTabContainer->setStyleSheet("QWidget#emailTabContainer { background-color: transparent; }");
+    
+    QVBoxLayout* emailTabLayout = new QVBoxLayout(emailTabContainer);
+    emailTabLayout->setSpacing(0);
+    emailTabLayout->setContentsMargins(0, 0, 0, 0);
+    
+    emailLoginTab = new QPushButton("验证码登录", emailTabContainer);
     emailLoginTab->setCursor(Qt::PointingHandCursor);
     emailLoginTab->setStyleSheet(
         "QPushButton {"
@@ -80,16 +106,18 @@ void LoginWindow::setupUI() {
         "}"
     );
     
+    emailTabIndicator = new QWidget(emailTabContainer);
+    emailTabIndicator->setFixedHeight(Dimens::STROKE_WIDTH);
+    emailTabIndicator->setStyleSheet("background-color: transparent;"); // 初始透明
+    
+    emailTabLayout->addWidget(emailLoginTab);
+    emailTabLayout->addWidget(emailTabIndicator);
+    
     connect(passwordLoginTab, &QPushButton::clicked, this, &LoginWindow::onPasswordLoginTabClicked);
     connect(emailLoginTab, &QPushButton::clicked, this, &LoginWindow::onEmailLoginTabClicked);
     
-    tabLayout->addWidget(passwordLoginTab);
-    tabLayout->addWidget(emailLoginTab);
-    
-    // 页签指示器
-    tabIndicator = new QWidget(loginContainer);
-    tabIndicator->setFixedHeight(Dimens::STROKE_WIDTH);
-    tabIndicator->setStyleSheet("background-color: transparent;"); // 初始透明
+    tabContainerLayout->addWidget(passwordTabContainer);
+    tabContainerLayout->addWidget(emailTabContainer);
     
     // 堆叠窗口
     stackedWidget = new QStackedWidget(loginContainer);
@@ -161,8 +189,7 @@ void LoginWindow::setupUI() {
     });
     
     // 组装布局
-    containerLayout->addLayout(tabLayout);
-    containerLayout->addWidget(tabIndicator);
+    containerLayout->addLayout(tabContainerLayout);
     containerLayout->addWidget(stackedWidget);
     
     // 登录按钮和loading的布局
@@ -325,27 +352,19 @@ void LoginWindow::updateTabIndicator(int index) {
     
     // 更新页签文字颜色
     QString activeStyle = "QPushButton { background: transparent; border: none; font-size: 16px; padding: 10px 20px; color: " + Colors::PRIMARY_COLOR.name() + "; }";
-    QString inactiveStyle = "QPushButton { background: transparent; border: none; font-size: 16px; padding: 10px 20px; color: " + Colors::SUB_TITLE_COLOR.name() + "; }";
+    QString inactiveStyle = "QPushButton { background: transparent; border: none; font-size: 16px; padding: 10px 20px; color: #000000; }"; // 黑色
     
     passwordLoginTab->setStyleSheet(index == 0 ? activeStyle : inactiveStyle);
     emailLoginTab->setStyleSheet(index == 1 ? activeStyle : inactiveStyle);
     
-    // 更新指示器颜色
+    // 更新指示器：激活的页签显示PRIMARY_COLOR，非激活的页签透明
     if (index == 0) {
-        tabIndicator->setStyleSheet(QString("background-color: %1;").arg(Colors::PRIMARY_COLOR.name()));
+        passwordTabIndicator->setStyleSheet(QString("background-color: %1;").arg(Colors::PRIMARY_COLOR.name()));
+        emailTabIndicator->setStyleSheet("background-color: transparent;");
     } else {
-        tabIndicator->setStyleSheet("background-color: transparent;");
+        passwordTabIndicator->setStyleSheet("background-color: transparent;");
+        emailTabIndicator->setStyleSheet(QString("background-color: %1;").arg(Colors::PRIMARY_COLOR.name()));
     }
-    
-    // 移动指示器
-    int tabWidth = loginContainer->width() / 2;
-    int targetX = index * tabWidth;
-    
-    QPropertyAnimation* animation = new QPropertyAnimation(tabIndicator, "geometry");
-    animation->setDuration(200);
-    animation->setStartValue(tabIndicator->geometry());
-    animation->setEndValue(QRect(targetX, tabIndicator->y(), tabWidth, Dimens::STROKE_WIDTH));
-    animation->start(QPropertyAnimation::DeleteWhenStopped);
 }
 
 void LoginWindow::startSendButtonLoading() {

@@ -49,7 +49,11 @@ private:
     QHBoxLayout* tabLayout;
     QPushButton* passwordLoginTab;
     QPushButton* emailLoginTab;
-    QWidget* tabIndicator;  // 页签指示器横线
+    
+    // 页签指示器（两个独立的指示器）
+    QWidget* passwordTabIndicator;  // 密码登录页签指示器
+    QWidget* emailTabIndicator;     // 验证码登录页签指示器
+    
     int currentTabIndex;    // 当前选中的页签索引
     
     // 堆叠窗口

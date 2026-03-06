@@ -5,7 +5,7 @@
 
 namespace Constants {
 // API 基础URL
-const QString BASE_URL = "http://192.168.73.8";
+const QString BASE_URL = "http://192.168.73.8:3000";
 
 // 缓存键
 const QString TOKEN_KEY = "jwt_token";

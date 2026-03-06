@@ -4,6 +4,7 @@
 #include "config/Constants.h"
 #include "network/NetworkManager.h"
 #include "utils/TokenManager.h"
+#include <QCryptographicHash>
 #include <QMessageBox>
 #include <QRegularExpression>
 #include <QRegularExpressionValidator>
@@ -33,11 +34,12 @@ LoginWindow::LoginWindow(QWidget *parent)
 void LoginWindow::setupUI() {
     // 主布局 - 使用弹性布局使登录框居中
     mainLayout = new QVBoxLayout(this);
-    mainLayout->setAlignment(Qt::AlignCenter);
+    mainLayout->setAlignment(Qt::AlignCenter);  // 让整个布局的内容居中对齐
     
-    // 登录框容器 - 固定大小，不随窗口变化
+    // 登录框容器 - 固定宽度400，高度根据内容自适应
     loginContainer = new QWidget(this);
-    loginContainer->setFixedSize(400, 500);
+    loginContainer->setFixedWidth(400);  // 固定宽度为400
+    // 不设置固定高度，让内容决定
     
     // 设置容器样式（白色背景+圆角）
     loginContainer->setStyleSheet(
@@ -48,11 +50,16 @@ void LoginWindow::setupUI() {
     );
     
     QVBoxLayout* containerLayout = new QVBoxLayout(loginContainer);
+    // 设置内边距，让内容不要贴边
+    containerLayout->setContentsMargins(
+        Dimens::PAGE_PADDING * 2,    // 左右边距
+        Dimens::PAGE_PADDING * 2,    // 上边距
+        Dimens::PAGE_PADDING * 2,    // 右边距
+        Dimens::PAGE_PADDING * 2     // 下边距
+    );
+    
+    // 设置控件之间的间距
     containerLayout->setSpacing(Dimens::PAGE_PADDING);
-    containerLayout->setContentsMargins(Dimens::PAGE_PADDING * 2, 
-                                       Dimens::PAGE_PADDING * 2, 
-                                       Dimens::PAGE_PADDING * 2, 
-                                       Dimens::PAGE_PADDING * 2);
     
     // 页签布局
     QHBoxLayout* tabContainerLayout = new QHBoxLayout();
@@ -121,7 +128,8 @@ void LoginWindow::setupUI() {
     
     // 堆叠窗口
     stackedWidget = new QStackedWidget(loginContainer);
-    stackedWidget->setFixedHeight(200);
+    // 不设置固定高度，让内容决定
+    // stackedWidget->setFixedHeight(200);  // 注释掉这行
     
     // 创建loading标签（用于显示加载动画）
     loadingLabel = new QLabel(loginContainer);
@@ -205,14 +213,19 @@ void LoginWindow::setupUI() {
     forgotLayout->addWidget(forgotPasswordButton);
     containerLayout->addLayout(forgotLayout);
     
+    // 在containerLayout最后添加一个垂直弹簧，防止内容被压缩
+    containerLayout->addStretch();
+    
     mainLayout->addWidget(loginContainer);
+    
+    // 在mainLayout最后添加一个垂直弹簧，确保登录框垂直居中
+    mainLayout->addStretch();
 }
 
 void LoginWindow::setupPasswordLoginPanel() {
     passwordLoginPanel = new QWidget();
     QVBoxLayout* layout = new QVBoxLayout(passwordLoginPanel);
     layout->setSpacing(Dimens::PAGE_PADDING);  // 设置输入框之间的间距
-    layout->setContentsMargins(0, Dimens::PAGE_PADDING, 0, 0);  // 设置顶部边距
     
     // 账号输入框
     usernameEdit = new QLineEdit(passwordLoginPanel);
@@ -556,6 +569,11 @@ void LoginWindow::setLoading(bool loading) {
     }
 }
 
+QString md5Encrypt(const QString& password) {
+    QByteArray hash = QCryptographicHash::hash(password.toUtf8(), QCryptographicHash::Md5);
+    return QString(hash.toHex());
+}
+
 void LoginWindow::onLoginClicked() {
     if (isLoading) return;
     
@@ -581,7 +599,7 @@ void LoginWindow::performPasswordLogin() {
     
     QJsonObject data;
     data["userAccount"] = username;
-    data["password"] = password;
+    data["password"] = md5Encrypt(password);
     
     NetworkManager::instance().post(
         Constants::Endpoints::PASSWORD_LOGIN,

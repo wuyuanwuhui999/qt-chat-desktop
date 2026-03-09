@@ -12,6 +12,7 @@ namespace Constants {
     const QString TOKEN_KEY = "jwt_token";
     const QString USER_KEY = "user_data";
     const QString CURRENT_TENANT_ID_KEY = "current_tenant_id";
+    const QString SELECTED_MODEL_ID_KEY = "selected_model_id";  // 新增：选中的模型ID
 
     // API 端点
     namespace Endpoints {
@@ -26,6 +27,8 @@ namespace Constants {
         
         // 聊天相关
         const QString GET_CHAT_HISTORY = "/service/chat/getChatHistory";
+        const QString GET_MODEL_LIST = "/service/chat/getModelList";  // 新增：获取模型列表
+        
         // 其他端点...
     }
 

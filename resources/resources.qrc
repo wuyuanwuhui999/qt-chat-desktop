@@ -4,5 +4,6 @@
     <file>images/icon_send.png</file>
     <file>images/loading.png</file>
     <file>images/icon_switch.png</file>
+    <file>images/icon_down.png</file>
 </qresource>
 </RCC>

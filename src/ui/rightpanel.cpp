@@ -1,8 +1,15 @@
 #include "RightPanel.h"
+#include "network/NetworkManager.h"
+#include "utils/TokenManager.h"
+#include "config/Constants.h"
 #include <QDebug>
 #include <QScrollBar>
 #include <QPainter>
 #include <QPainterPath>
+#include <QJsonArray>
+#include <QCursor>
+#include <QMenu>
+#include <QMouseEvent>  // 添加这个头文件
 
 RightPanel::RightPanel(QWidget *parent)
     : QWidget(parent)
@@ -13,6 +20,9 @@ RightPanel::RightPanel(QWidget *parent)
 {
     setStyleSheet("background-color: white;");  // 设置背景色为白色
     setupUI();
+    
+    // 加载模型列表
+    loadModelList();
 }
 
 void RightPanel::setupUI() {
@@ -122,7 +132,119 @@ void RightPanel::setupUI() {
      .arg(Colors::DISABLE_COLOR.name())
      .arg(Colors::PRIMARY_COLOR.name()));
     
-    // ========== 按钮容器 ==========
+    // ========== 顶部按钮区域（模型选择和语言切换）==========
+    QWidget* topButtonContainer = new QWidget(inputContainer);
+    topButtonContainer->setStyleSheet("background-color: transparent; border: none;");
+    
+    QHBoxLayout* topButtonLayout = new QHBoxLayout(topButtonContainer);
+    topButtonLayout->setContentsMargins(0, 0, 0, 0);
+    topButtonLayout->setSpacing(Dimens::PAGE_PADDING);
+    
+    // ========== 模型选择容器（包含模型名称和下拉箭头）==========
+    modelContainer = new QWidget(topButtonContainer);
+    modelContainer->setCursor(Qt::PointingHandCursor);
+    modelContainer->setStyleSheet("background-color: transparent; border: none;");
+    
+    modelLayout = new QHBoxLayout(modelContainer);
+    modelLayout->setContentsMargins(0, 0, 0, 0);
+    modelLayout->setSpacing(Dimens::SMALL_MARGIN);
+    
+    // 模型名称按钮
+    modelNameBtn = new QPushButton("加载模型中...", modelContainer);
+    modelNameBtn->setCursor(Qt::PointingHandCursor);
+    modelNameBtn->setFixedHeight(Dimens::BTN_HEIGHT);
+    modelNameBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "   background-color: transparent;"
+        "   color: %1;"
+        "   border: none;"
+        "   font-size: %2px;"
+        "   font-weight: bold;"
+        "   text-align: left;"
+        "   padding: 0;"
+        "}"
+        "QPushButton:hover {"
+        "   color: %3;"
+        "}"
+    ).arg(Colors::TEXT_COLOR.name())
+     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Colors::PRIMARY_COLOR.name()));
+    
+    // 下拉箭头按钮
+    modelArrowBtn = new QPushButton(modelContainer);
+    modelArrowBtn->setCursor(Qt::PointingHandCursor);
+    modelArrowBtn->setFixedSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE);
+    
+    // 加载下拉箭头图标
+    QPixmap arrowPixmap(":/images/icon_down.png");
+    if (!arrowPixmap.isNull()) {
+        modelArrowBtn->setIcon(QIcon(arrowPixmap));
+        modelArrowBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
+        modelArrowBtn->setStyleSheet("QPushButton { background-color: transparent; border: none; }");
+    } else {
+        // 如果没有图标，使用文字代替
+        modelArrowBtn->setText("▼");
+        modelArrowBtn->setStyleSheet(QString(
+            "QPushButton {"
+            "   background-color: transparent;"
+            "   color: %1;"
+            "   font-size: %2px;"
+            "   border: none;"
+            "   padding: 0;"
+            "}"
+            "QPushButton:hover {"
+            "   color: %3;"
+            "}"
+        ).arg(Colors::TEXT_COLOR.name())
+         .arg(Dimens::FONT_SIZE_NORMAL)
+         .arg(Colors::PRIMARY_COLOR.name()));
+    }
+    
+    modelLayout->addWidget(modelNameBtn);
+    modelLayout->addWidget(modelArrowBtn);
+    
+    // 连接模型选择信号（使用按钮的clicked信号，而不是mousePressEvent）
+    connect(modelNameBtn, &QPushButton::clicked, this, &RightPanel::onModelMenuClicked);
+    connect(modelArrowBtn, &QPushButton::clicked, this, &RightPanel::onModelMenuClicked);
+    
+    // 中英文切换按钮（无边框，带图标，右对齐）
+    languageBtn = new QPushButton("中文", topButtonContainer);
+    languageBtn->setCursor(Qt::PointingHandCursor);
+    languageBtn->setFixedHeight(Dimens::BTN_HEIGHT);
+    languageBtn->setMinimumWidth(100);
+    languageBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "   background-color: transparent;"
+        "   color: %1;"
+        "   border: none;"
+        "   font-size: %2px;"
+        "   padding: 0 %3px;"
+        "   text-align: right;"
+        "}"
+    ).arg(Colors::TEXT_COLOR.name())
+     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Dimens::PAGE_PADDING));
+    
+    // 加载切换图标
+    QPixmap switchPixmap(":/images/icon_switch.png");
+    if (!switchPixmap.isNull()) {
+        languageBtn->setIcon(QIcon(switchPixmap));
+        languageBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
+    } else {
+        // 如果没有图标，使用文字代替
+        qDebug() << "Switch icon not found, using text fallback";
+        languageBtn->setText("中文 🔄");
+    }
+    
+    // 设置图标在文字右侧
+    languageBtn->setLayoutDirection(Qt::RightToLeft);
+    
+    // 添加到顶部按钮布局
+    topButtonLayout->addWidget(modelContainer);
+    topButtonLayout->addStretch();  // 添加弹性空间，将语言按钮推到右边
+    topButtonLayout->addWidget(languageBtn);
+    
+    // ========== 底部按钮区域 ==========
     buttonContainer = new QWidget(inputContainer);
     buttonContainer->setStyleSheet("background-color: transparent; border: none;");
     
@@ -212,38 +334,6 @@ void RightPanel::setupUI() {
      .arg(Dimens::PAGE_PADDING)
      .arg(Colors::PRIMARY_COLOR.name()));
     
-    // 中英文切换按钮（无边框，带图标，右对齐）
-    languageBtn = new QPushButton("中文", buttonContainer);
-    languageBtn->setCursor(Qt::PointingHandCursor);
-    languageBtn->setFixedHeight(Dimens::BTN_HEIGHT);
-    languageBtn->setMinimumWidth(100);
-    languageBtn->setStyleSheet(QString(
-        "QPushButton {"
-        "   background-color: transparent;"
-        "   color: %1;"
-        "   border: none;"
-        "   font-size: %3px;"
-        "   padding: 0 %4px;"
-        "   text-align: right;"
-        "}"
-    ).arg(Colors::TEXT_COLOR.name())  // 黑色文字
-     .arg(Dimens::FONT_SIZE_NORMAL)
-     .arg(Dimens::PAGE_PADDING));
-    
-    // 加载切换图标
-    QPixmap switchPixmap(":/images/icon_switch.png");
-    if (!switchPixmap.isNull()) {
-        languageBtn->setIcon(QIcon(switchPixmap));
-        languageBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
-    } else {
-        // 如果没有图标，使用文字代替
-        qDebug() << "Switch icon not found, using text fallback";
-        languageBtn->setText("中文 🔄");
-    }
-    
-    // 设置图标在文字右侧
-    languageBtn->setLayoutDirection(Qt::RightToLeft);  // 设置布局方向为从右到左，使图标在文字右侧
-    
     // 连接信号
     connect(deepThinkBtn, &QPushButton::toggled, this, &RightPanel::onDeepThinkToggled);
     connect(languageBtn, &QPushButton::clicked, this, &RightPanel::onLanguageToggle);
@@ -254,10 +344,10 @@ void RightPanel::setupUI() {
     buttonLayout->addWidget(deepThinkBtn);
     buttonLayout->addWidget(searchDocBtn);
     buttonLayout->addWidget(docSelectionBtn);
-    buttonLayout->addStretch();  // 添加弹性空间，将后面的按钮推到右边
-    buttonLayout->addWidget(languageBtn);  // 语言按钮放在最右边
+    buttonLayout->addStretch();  // 添加弹性空间
     
-    // 将输入框和按钮容器添加到容器布局
+    // 将所有组件添加到容器布局
+    containerLayout->addWidget(topButtonContainer);
     containerLayout->addWidget(inputEdit);
     containerLayout->addWidget(buttonContainer);
     
@@ -274,6 +364,165 @@ void RightPanel::setupUI() {
     
     // 添加底部弹性空间，使内容垂直居中
     mainLayout->addStretch();
+}
+
+void RightPanel::loadModelList() {
+    qDebug() << "Loading model list from:" << Constants::Endpoints::GET_MODEL_LIST;
+    
+    // 确保 token 已设置
+    QString token = TokenManager::instance().getToken();
+    if (!token.isEmpty()) {
+        NetworkManager::instance().setAuthToken(token);
+    }
+    
+    NetworkManager::instance().get(
+        Constants::Endpoints::GET_MODEL_LIST,
+        [this](const ApiResponse& response) {
+            qDebug() << "Model list response - status:" << response.status 
+                     << "message:" << response.message;
+            
+            if (response.isSuccess() && !response.data.isNull()) {
+                modelList.clear();
+                
+                QJsonArray modelArray = response.data.toJsonArray();
+                qDebug() << "Model array size:" << modelArray.size();
+                
+                for (const QJsonValue& value : modelArray) {
+                    ModelInfo model = ModelInfo::fromJson(value.toObject());
+                    if (model.isValid()) {
+                        modelList.append(model);
+                        qDebug() << "Model:" << model.id << model.modelName;
+                    }
+                }
+                
+                if (modelList.isEmpty()) {
+                    qDebug() << "Model list is empty";
+                    modelNameBtn->setText("无可用模型");
+                    return;
+                }
+                
+                // 从缓存中获取上次保存的模型ID
+                QString cachedModelId = TokenManager::instance().getValue(Constants::SELECTED_MODEL_ID_KEY).toString();
+                qDebug() << "Cached model ID:" << cachedModelId;
+                
+                bool found = false;
+                
+                // 检查缓存的模型是否在列表中
+                if (!cachedModelId.isEmpty()) {
+                    for (const ModelInfo& model : modelList) {
+                        if (model.id == cachedModelId) {
+                            updateCurrentModel(model);
+                            found = true;
+                            qDebug() << "Found cached model:" << model.modelName;
+                            break;
+                        }
+                    }
+                }
+                
+                // 如果没找到，选择第一条
+                if (!found && !modelList.isEmpty()) {
+                    updateCurrentModel(modelList.first());
+                    qDebug() << "Using first model:" << modelList.first().modelName;
+                }
+            } else {
+                qDebug() << "Failed to load model list:" << response.message;
+                modelNameBtn->setText("加载失败");
+            }
+        },
+        [this](const QString& error) {
+            qDebug() << "Network error when loading model list:" << error;
+            modelNameBtn->setText("加载失败");
+        }
+    );
+}
+
+void RightPanel::showModelPopupMenu() {
+    if (modelList.isEmpty()) {
+        qDebug() << "Model list is empty, cannot show menu";
+        return;
+    }
+    
+    qDebug() << "Showing model popup menu with" << modelList.size() << "items";
+    
+    QMenu menu(this);
+    menu.setStyleSheet(QString(
+        "QMenu {"
+        "   background-color: white;"
+        "   border: 1px solid %1;"
+        "   border-radius: %2px;"
+        "   padding: %3px;"
+        "}"
+        "QMenu::item {"
+        "   padding: %3px %4px;"
+        "   border-radius: %2px;"
+        "   color: %5;"
+        "   font-size: %6px;"
+        "}"
+        "QMenu::item:selected {"
+        "   background-color: %7;"
+        "   color: white;"
+        "}"
+    ).arg(Colors::LINE_COLOR.name())
+     .arg(Dimens::SMALL_MARGIN)
+     .arg(Dimens::SMALL_MARGIN)
+     .arg(Dimens::PAGE_PADDING)
+     .arg(Colors::TEXT_COLOR.name())
+     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Colors::PRIMARY_COLOR.name()));
+    
+    for (const ModelInfo& model : modelList) {
+        QAction* action = menu.addAction(model.modelName);
+        action->setData(model.id);
+        
+        // 标记当前选中的模型
+        if (model.id == currentModel.id) {
+            QFont font = action->font();
+            font.setBold(true);
+            action->setFont(font);
+        }
+        
+        connect(action, &QAction::triggered, this, &RightPanel::onModelSelected);
+    }
+    
+    // 显示菜单
+    QPoint pos = modelContainer->mapToGlobal(QPoint(0, modelContainer->height()));
+    menu.exec(pos);
+}
+
+void RightPanel::onModelSelected() {
+    QAction* action = qobject_cast<QAction*>(sender());
+    if (!action) return;
+    
+    QString modelId = action->data().toString();
+    
+    for (const ModelInfo& model : modelList) {
+        if (model.id == modelId) {
+            updateCurrentModel(model);
+            break;
+        }
+    }
+}
+
+void RightPanel::updateCurrentModel(const ModelInfo& model) {
+    currentModel = model;
+    modelNameBtn->setText(model.modelName);
+    
+    // 保存到缓存
+    TokenManager::instance().setValue(Constants::SELECTED_MODEL_ID_KEY, model.id);
+    
+    qDebug() << "Model selected:" << model.modelName << model.id;
+}
+
+void RightPanel::onModelMenuClicked() {
+    qDebug() << "Model menu clicked, model list size:" << modelList.size();
+    
+    if (modelList.isEmpty()) {
+        qDebug() << "Model list is empty, reloading...";
+        loadModelList();  // 尝试重新加载模型列表
+        return;
+    }
+    
+    showModelPopupMenu();
 }
 
 void RightPanel::onDeepThinkToggled() {
@@ -414,7 +663,4 @@ void RightPanel::updateButtonsStyle() {
          .arg(Dimens::FONT_SIZE_NORMAL)
          .arg(Dimens::PAGE_PADDING));
     }
-    
-    // 语言按钮样式保持不变（无边框，黑色文字）
-    // 不需要更新，因为样式在setupUI中已设置且保持不变
 }

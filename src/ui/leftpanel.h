@@ -13,7 +13,8 @@
 #include <QMenu>
 #include <QAction>
 #include <QTimer>
-#include <QSettings>  // 添加这个头文件
+#include <QSettings>
+#include <QNetworkAccessManager>  // 添加这个头文件
 #include "models/User.h"
 #include "models/ApiResponse.h"
 #include "theme/Colors.h"
@@ -132,7 +133,10 @@ private:
     void clearChatList();
     void showTenantPopupMenu();
     TenantInfo createDefaultTenant() const;
-    QPixmap getAvatarPixmap() const;
+    
+    // 头像相关的新方法
+    void loadAvatar();  // 新增：加载头像
+    void createDefaultAvatar();  // 新增：创建默认头像
 
     // UI组件
     QVBoxLayout* mainLayout;
@@ -142,6 +146,7 @@ private:
     QVBoxLayout* userTextLayout;
     QLabel* userNameLabel;
     QPushButton* tenantNameBtn;
+    QPushButton* tenantArrowBtn;  // 新增：租户选择下拉箭头按钮
     QScrollArea* chatScrollArea;
     QWidget* chatContainer;
     QVBoxLayout* chatLayout;

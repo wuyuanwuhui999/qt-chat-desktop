@@ -24,8 +24,9 @@ namespace Dimens {
     const int BIG_ICON_SIZE = 80;            // 80dp
     
     // 控件尺寸
-    const int INPUT_HEIGHT = 40;              // 40dp
-    const int BTN_HEIGHT = 50;                // 50dp
+    const int INPUT_HEIGHT = 50;
+    const int INPUT_MAX_HEIGHT = 300;
+    const int BTN_HEIGHT = 40;                // 50dp
     const int BTN_PADDING = 20;               // 20dp
     const int BAR_HEIGHT = 60;                // 60dp
     

@@ -18,6 +18,9 @@
 #include <QJsonValue>
 #include <QUrl>
 #include <QUrlQuery>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 
 // 注册自定义类型用于信号槽
 static struct MetaTypeRegistration {
@@ -63,13 +66,13 @@ void LeftPanel::setupUI() {
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
     
-    // 用户信息区域 - 添加底部边框
+    // 用户信息区域 - 移除底部边框
     userInfoWidget = new QWidget(this);
     userInfoWidget->setFixedHeight(Dimens::BAR_HEIGHT);
     userInfoWidget->setStyleSheet(QString(
         "background-color: white;"
-        "border-bottom: 1px solid %1;"
-    ).arg(Colors::LINE_COLOR.name()));
+        "border-bottom: none;"  // 移除边框
+    ));
     
     userInfoLayout = new QHBoxLayout(userInfoWidget);
     userInfoLayout->setContentsMargins(Dimens::PAGE_PADDING, 0, Dimens::PAGE_PADDING, 0);
@@ -90,7 +93,17 @@ void LeftPanel::setupUI() {
                                 .arg(Colors::TEXT_COLOR.name())
                                 .arg(Dimens::FONT_SIZE_NORMAL));
     
-    tenantNameBtn = new QPushButton(userInfoWidget);
+    // 租户名称容器（包含文字和三角形按钮）
+    QWidget* tenantContainer = new QWidget(userInfoWidget);
+    tenantContainer->setCursor(Qt::PointingHandCursor);
+    tenantContainer->setStyleSheet("background-color: transparent; border: none;");
+    
+    QHBoxLayout* tenantLayout = new QHBoxLayout(tenantContainer);
+    tenantLayout->setContentsMargins(0, 0, 0, 0);
+    tenantLayout->setSpacing(Dimens::SMALL_MARGIN);
+    
+    // 租户名称按钮
+    tenantNameBtn = new QPushButton(tenantContainer);
     tenantNameBtn->setCursor(Qt::PointingHandCursor);
     tenantNameBtn->setStyleSheet(QString(
         "QPushButton {"
@@ -108,10 +121,50 @@ void LeftPanel::setupUI() {
      .arg(Dimens::FONT_SIZE_NORMAL - 2)
      .arg(Colors::PRIMARY_COLOR.name()));
     
+    // 向下三角形按钮
+    tenantArrowBtn = new QPushButton(tenantContainer);
+    tenantArrowBtn->setCursor(Qt::PointingHandCursor);
+    tenantArrowBtn->setFixedSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE);
+    tenantArrowBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "   background-color: transparent;"
+        "   border: none;"
+        "   icon: url(:/resources/images/arrow_down.png);"
+        "   icon-size: %1px;"
+        "}"
+        "QPushButton:hover {"
+        "   icon: url(:/resources/images/arrow_down_hover.png);"
+        "}"
+    ).arg(Dimens::SMALL_ICON_SIZE));
+    
+    // 如果没有箭头图标，使用文本箭头
+    if (tenantArrowBtn->icon().isNull()) {
+        tenantArrowBtn->setText("▼");
+        tenantArrowBtn->setStyleSheet(QString(
+            "QPushButton {"
+            "   background-color: transparent;"
+            "   color: %1;"
+            "   font-size: %2px;"
+            "   border: none;"
+            "   padding: 0;"
+            "}"
+            "QPushButton:hover {"
+            "   color: %3;"
+            "}"
+        ).arg(Colors::SUB_TITLE_COLOR.name())
+         .arg(Dimens::FONT_SIZE_NORMAL - 2)
+         .arg(Colors::PRIMARY_COLOR.name()));
+    }
+    
+    tenantLayout->addWidget(tenantNameBtn);
+    tenantLayout->addWidget(tenantArrowBtn);
+    tenantLayout->addStretch();
+    
     connect(tenantNameBtn, &QPushButton::clicked, this, &LeftPanel::onTenantMenuClicked);
+    connect(tenantArrowBtn, &QPushButton::clicked, this, &LeftPanel::onTenantMenuClicked);
     
     userTextLayout->addWidget(userNameLabel);
-    userTextLayout->addWidget(tenantNameBtn);
+    userTextLayout->addWidget(tenantContainer);
     
     userInfoLayout->addWidget(avatarLabel);
     userInfoLayout->addLayout(userTextLayout);
@@ -215,67 +268,94 @@ void LeftPanel::loadUserInfo() {
     userNameLabel->setText(displayName);
     
     // 设置头像
-    QPixmap avatar = getAvatarPixmap();
-    avatarLabel->setPixmap(avatar);
+    loadAvatar();
 }
 
-QPixmap LeftPanel::getAvatarPixmap() const {
-    QPixmap pixmap;
-    
+void LeftPanel::loadAvatar() {
     if (!currentUser.avatar.isEmpty()) {
+        // 有头像字段，加载网络头像
         QString avatarUrl = Constants::BASE_URL + currentUser.avatar;
-        // TODO: 实现异步加载网络图片
-        // 暂时使用默认头像
-        pixmap.load(":/resources/images/default_avatar.png");
-    } else {
-        pixmap.load(":/resources/images/default_avatar.png");
-    }
-    
-    if (pixmap.isNull()) {
-        // 创建默认头像（显示用户首字母）
-        QString initial = currentUser.username.left(1).toUpper();
-        if (initial.isEmpty()) {
-            initial = currentUser.userAccount.left(1).toUpper();
-        }
-        if (initial.isEmpty()) {
-            initial = "U";
+        qDebug() << "Loading avatar from:" << avatarUrl;
+        
+        QNetworkAccessManager* manager = new QNetworkAccessManager(this);
+        QNetworkRequest request(avatarUrl);
+        
+        // 添加认证头
+        QString token = TokenManager::instance().getToken();
+        if (!token.isEmpty()) {
+            request.setRawHeader("Authorization", QString("Bearer %1").arg(token).toUtf8());
         }
         
-        pixmap = QPixmap(Dimens::MIDDLE_AVATAR, Dimens::MIDDLE_AVATAR);
-        pixmap.fill(Qt::transparent);
+        QNetworkReply* reply = manager->get(request);
         
-        QPainter painter(&pixmap);
-        painter.setRenderHint(QPainter::Antialiasing);
-        
-        // 绘制圆形背景
-        QPainterPath path;
-        path.addEllipse(0, 0, Dimens::MIDDLE_AVATAR, Dimens::MIDDLE_AVATAR);
-        painter.fillPath(path, Colors::PRIMARY_COLOR);
-        
-        // 绘制文字
-        painter.setPen(Qt::white);
-        QFont font;
-        font.setPixelSize(Dimens::MIDDLE_AVATAR * 0.4);
-        painter.setFont(font);
-        painter.drawText(pixmap.rect(), Qt::AlignCenter, initial);
+        connect(reply, &QNetworkReply::finished, [this, reply, manager]() {
+            if (reply->error() == QNetworkReply::NoError) {
+                QByteArray imageData = reply->readAll();
+                QPixmap pixmap;
+                pixmap.loadFromData(imageData);
+                
+                if (!pixmap.isNull()) {
+                    // 将图片裁剪为圆形
+                    QPixmap rounded = QPixmap(pixmap.size());
+                    rounded.fill(Qt::transparent);
+                    
+                    QPainter painter(&rounded);
+                    painter.setRenderHint(QPainter::Antialiasing);
+                    
+                    QPainterPath path;
+                    path.addEllipse(0, 0, pixmap.width(), pixmap.height());
+                    painter.setClipPath(path);
+                    painter.drawPixmap(0, 0, pixmap);
+                    
+                    avatarLabel->setPixmap(rounded.scaled(Dimens::MIDDLE_AVATAR, Dimens::MIDDLE_AVATAR, 
+                                                          Qt::KeepAspectRatio, Qt::SmoothTransformation));
+                } else {
+                    createDefaultAvatar();
+                }
+            } else {
+                qDebug() << "Failed to load avatar:" << reply->errorString();
+                createDefaultAvatar();
+            }
+            
+            reply->deleteLater();
+            manager->deleteLater();
+        });
     } else {
-        // 将图片裁剪为圆形
-        QPixmap rounded = QPixmap(pixmap.size());
-        rounded.fill(Qt::transparent);
-        
-        QPainter painter(&rounded);
-        painter.setRenderHint(QPainter::Antialiasing);
-        
-        QPainterPath path;
-        path.addEllipse(0, 0, pixmap.width(), pixmap.height());
-        painter.setClipPath(path);
-        painter.drawPixmap(0, 0, pixmap);
-        
-        pixmap = rounded;
+        // 头像为空，使用用户名第一个字母作为头像
+        createDefaultAvatar();
+    }
+}
+
+void LeftPanel::createDefaultAvatar() {
+    // 获取用户名第一个字母
+    QString initial;
+    if (!currentUser.username.isEmpty()) {
+        initial = currentUser.username.left(1).toUpper();
+    } else if (!currentUser.userAccount.isEmpty()) {
+        initial = currentUser.userAccount.left(1).toUpper();
+    } else {
+        initial = "U";  // 默认用户
     }
     
-    return pixmap.scaled(Dimens::MIDDLE_AVATAR, Dimens::MIDDLE_AVATAR, 
-                        Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    QPixmap pixmap(Dimens::MIDDLE_AVATAR, Dimens::MIDDLE_AVATAR);
+    pixmap.fill(Qt::transparent);
+    
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    
+    // 绘制圆形背景
+    QPainterPath path;
+    path.addEllipse(0, 0, Dimens::MIDDLE_AVATAR, Dimens::MIDDLE_AVATAR);
+    painter.fillPath(path, Colors::PRIMARY_COLOR);
+    
+    // 绘制文字
+    painter.setPen(Qt::white);
+    QFont font;
+    font.setPixelSize(Dimens::MIDDLE_AVATAR * 0.5);  // 稍微调大一点
+    painter.setFont(font);
+    painter.drawText(pixmap.rect(), Qt::AlignCenter, initial);
+    
+    avatarLabel->setPixmap(pixmap);
 }
 
 void LeftPanel::loadTenantList() {

@@ -1,3 +1,4 @@
+// RightPanel.cpp
 #include "RightPanel.h"
 #include "network/NetworkManager.h"
 #include "utils/TokenManager.h"
@@ -9,7 +10,7 @@
 #include <QJsonArray>
 #include <QCursor>
 #include <QMenu>
-#include <QMouseEvent>  // 添加这个头文件
+#include <QMouseEvent>
 
 RightPanel::RightPanel(QWidget *parent)
     : QWidget(parent)
@@ -57,14 +58,14 @@ void RightPanel::setupUI() {
     logoLabel->setFixedSize(Dimens::MIDDLE_AVATAR, Dimens::MIDDLE_AVATAR);
     logoLabel->setAlignment(Qt::AlignCenter);
     
-    // 欢迎语
+    // 欢迎语 - 使用黑色字体
     welcomeLabel = new QLabel("今天有什么可以帮到你", this);
     welcomeLabel->setStyleSheet(QString(
         "color: %1;"
         "font-size: %2px;"
         "font-weight: bold;"
         "background-color: transparent;"
-    ).arg(Colors::TEXT_COLOR.name())
+    ).arg(Colors::TEXT_COLOR.name())  // 黑色主标题
      .arg(Dimens::FONT_SIZE_XL));
     
     logoLayout->addWidget(logoLabel);
@@ -127,7 +128,7 @@ void RightPanel::setupUI() {
         "   height: 0px;"
         "}"
     ).arg(Colors::TEXT_COLOR.name())
-     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
      .arg(Colors::DISABLE_COLOR.name())
      .arg(Colors::DISABLE_COLOR.name())
      .arg(Colors::PRIMARY_COLOR.name()));
@@ -167,8 +168,8 @@ void RightPanel::setupUI() {
         "   color: %3;"
         "}"
     ).arg(Colors::TEXT_COLOR.name())
-     .arg(Dimens::FONT_SIZE_NORMAL)
-     .arg(Colors::PRIMARY_COLOR.name()));
+     .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
+     .arg(Colors::PRIMARY_COLOR.name()));  // 主色调
     
     // 下拉箭头按钮
     modelArrowBtn = new QPushButton(modelContainer);
@@ -196,18 +197,18 @@ void RightPanel::setupUI() {
             "   color: %3;"
             "}"
         ).arg(Colors::TEXT_COLOR.name())
-         .arg(Dimens::FONT_SIZE_NORMAL)
-         .arg(Colors::PRIMARY_COLOR.name()));
+         .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
+         .arg(Colors::PRIMARY_COLOR.name()));  // 主色调
     }
     
     modelLayout->addWidget(modelNameBtn);
     modelLayout->addWidget(modelArrowBtn);
     
-    // 连接模型选择信号（使用按钮的clicked信号，而不是mousePressEvent）
+    // 连接模型选择信号
     connect(modelNameBtn, &QPushButton::clicked, this, &RightPanel::onModelMenuClicked);
     connect(modelArrowBtn, &QPushButton::clicked, this, &RightPanel::onModelMenuClicked);
     
-    // 中英文切换按钮（无边框，带图标，右对齐）
+    // 中英文切换按钮
     languageBtn = new QPushButton("中文", topButtonContainer);
     languageBtn->setCursor(Qt::PointingHandCursor);
     languageBtn->setFixedHeight(Dimens::BTN_HEIGHT);
@@ -222,7 +223,7 @@ void RightPanel::setupUI() {
         "   text-align: right;"
         "}"
     ).arg(Colors::TEXT_COLOR.name())
-     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
      .arg(Dimens::PAGE_PADDING));
     
     // 加载切换图标
@@ -239,10 +240,11 @@ void RightPanel::setupUI() {
     // 设置图标在文字右侧
     languageBtn->setLayoutDirection(Qt::RightToLeft);
     
-    // 添加到顶部按钮布局
+    // 添加到顶部按钮布局 - 设置右边距为Dimens::PAGE_PADDING
     topButtonLayout->addWidget(modelContainer);
-    topButtonLayout->addStretch();  // 添加弹性空间，将语言按钮推到右边
+    topButtonLayout->addStretch();
     topButtonLayout->addWidget(languageBtn);
+    topButtonLayout->setContentsMargins(0, 0, Dimens::PAGE_PADDING, 0);  // 设置右边距
     
     // ========== 底部按钮区域 ==========
     buttonContainer = new QWidget(inputContainer);
@@ -275,9 +277,9 @@ void RightPanel::setupUI() {
         "}"
     ).arg(Colors::DISABLE_COLOR.name())
      .arg(Dimens::BTN_HEIGHT / 2)
-     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
      .arg(Dimens::PAGE_PADDING)
-     .arg(Colors::PRIMARY_COLOR.name()));
+     .arg(Colors::PRIMARY_COLOR.name()));  // 主色调
     
     // 查询文档按钮
     searchDocBtn = new QPushButton("查询文档", buttonContainer);
@@ -302,16 +304,16 @@ void RightPanel::setupUI() {
         "}"
     ).arg(Colors::DISABLE_COLOR.name())
      .arg(Dimens::BTN_HEIGHT / 2)
-     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
      .arg(Dimens::PAGE_PADDING)
-     .arg(Colors::PRIMARY_COLOR.name()));
+     .arg(Colors::PRIMARY_COLOR.name()));  // 主色调
     
     // 文档选择按钮（初始隐藏）
     docSelectionBtn = new QPushButton("选择文档", buttonContainer);
     docSelectionBtn->setCursor(Qt::PointingHandCursor);
     docSelectionBtn->setFixedHeight(Dimens::BTN_HEIGHT);
     docSelectionBtn->setMinimumWidth(100);
-    docSelectionBtn->setVisible(false);  // 初始隐藏
+    docSelectionBtn->setVisible(false);
     docSelectionBtn->setCheckable(true);
     docSelectionBtn->setChecked(false);
     docSelectionBtn->setStyleSheet(QString(
@@ -330,21 +332,65 @@ void RightPanel::setupUI() {
         "}"
     ).arg(Colors::DISABLE_COLOR.name())
      .arg(Dimens::BTN_HEIGHT / 2)
-     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
      .arg(Dimens::PAGE_PADDING)
-     .arg(Colors::PRIMARY_COLOR.name()));
+     .arg(Colors::PRIMARY_COLOR.name()));  // 主色调
+    
+    // 发送按钮 - 圆形，背景色为DISABLE_COLOR
+    sendButton = new QPushButton(buttonContainer);
+    sendButton->setCursor(Qt::PointingHandCursor);
+    sendButton->setFixedSize(Dimens::BTN_HEIGHT, Dimens::BTN_HEIGHT);  // 设置为正方形
+    sendButton->setStyleSheet(QString(
+        "QPushButton {"
+        "   background-color: %1;"
+        "   border: none;"
+        "   border-radius: %2px;"  // 高度的一半，形成圆形
+        "}"
+        "QPushButton:hover {"
+        "   background-color: %3;"
+        "}"
+    ).arg(Colors::DISABLE_COLOR.name())
+     .arg(Dimens::BTN_HEIGHT / 2)
+     .arg(Colors::PRIMARY_COLOR.name()));  // 悬停时使用主色调
+    
+    // 加载发送图标
+    QPixmap sendPixmap(":/images/icon_send.png");
+    if (!sendPixmap.isNull()) {
+        sendButton->setIcon(QIcon(sendPixmap));
+        sendButton->setIconSize(QSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE));
+    } else {
+        // 如果没有图标，使用文字代替
+        sendButton->setText("➤");
+        sendButton->setStyleSheet(QString(
+            "QPushButton {"
+            "   background-color: %1;"
+            "   color: white;"
+            "   border: none;"
+            "   border-radius: %2px;"
+            "   font-size: %3px;"
+            "}"
+            "QPushButton:hover {"
+            "   background-color: %4;"
+            "}"
+        ).arg(Colors::DISABLE_COLOR.name())
+         .arg(Dimens::BTN_HEIGHT / 2)
+         .arg(Dimens::FONT_SIZE_BIG)
+         .arg(Colors::PRIMARY_COLOR.name()));
+    }
     
     // 连接信号
     connect(deepThinkBtn, &QPushButton::toggled, this, &RightPanel::onDeepThinkToggled);
     connect(languageBtn, &QPushButton::clicked, this, &RightPanel::onLanguageToggle);
     connect(searchDocBtn, &QPushButton::toggled, this, &RightPanel::onSearchDocToggled);
     connect(docSelectionBtn, &QPushButton::toggled, this, &RightPanel::onDocSelectionToggled);
+    connect(sendButton, &QPushButton::clicked, this, &RightPanel::onSendClicked);
     
     // 将按钮添加到按钮布局
     buttonLayout->addWidget(deepThinkBtn);
     buttonLayout->addWidget(searchDocBtn);
     buttonLayout->addWidget(docSelectionBtn);
     buttonLayout->addStretch();  // 添加弹性空间
+    buttonLayout->addWidget(sendButton);  // 发送按钮在最右边
     
     // 将所有组件添加到容器布局
     containerLayout->addWidget(topButtonContainer);
@@ -467,8 +513,8 @@ void RightPanel::showModelPopupMenu() {
      .arg(Dimens::SMALL_MARGIN)
      .arg(Dimens::PAGE_PADDING)
      .arg(Colors::TEXT_COLOR.name())
-     .arg(Dimens::FONT_SIZE_NORMAL)
-     .arg(Colors::PRIMARY_COLOR.name()));
+     .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
+     .arg(Colors::PRIMARY_COLOR.name()));  // 主色调
     
     for (const ModelInfo& model : modelList) {
         QAction* action = menu.addAction(model.modelName);
@@ -570,6 +616,24 @@ void RightPanel::onDocSelectionToggled() {
     qDebug() << "Doc selection toggled:" << docSelectionBtn->isChecked();
 }
 
+void RightPanel::onSendClicked() {
+    QString message = inputEdit->toPlainText().trimmed();
+    if (message.isEmpty()) {
+        qDebug() << "Empty message, not sending";
+        return;
+    }
+    
+    qDebug() << "Send button clicked, message:" << message.left(50) << "...";
+    qDebug() << "Current model:" << currentModel.modelName;
+    qDebug() << "Deep think:" << isDeepThinkSelected;
+    qDebug() << "Search doc:" << isSearchDocSelected;
+    
+    // TODO: 实现发送消息功能
+    
+    // 清空输入框
+    inputEdit->clear();
+}
+
 void RightPanel::updateButtonsStyle() {
     // 更新深度思考按钮样式
     if (isDeepThinkSelected) {
@@ -582,9 +646,9 @@ void RightPanel::updateButtonsStyle() {
             "   font-size: %3px;"
             "   padding: 0 %4px;"
             "}"
-        ).arg(Colors::PRIMARY_COLOR.name())
+        ).arg(Colors::PRIMARY_COLOR.name())  // 主色调
          .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_NORMAL)
+         .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
          .arg(Dimens::PAGE_PADDING));
     } else {
         deepThinkBtn->setStyleSheet(QString(
@@ -598,7 +662,7 @@ void RightPanel::updateButtonsStyle() {
             "}"
         ).arg(Colors::DISABLE_COLOR.name())
          .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_NORMAL)
+         .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
          .arg(Dimens::PAGE_PADDING));
     }
     
@@ -613,9 +677,9 @@ void RightPanel::updateButtonsStyle() {
             "   font-size: %3px;"
             "   padding: 0 %4px;"
             "}"
-        ).arg(Colors::PRIMARY_COLOR.name())
+        ).arg(Colors::PRIMARY_COLOR.name())  // 主色调
          .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_NORMAL)
+         .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
          .arg(Dimens::PAGE_PADDING));
     } else {
         searchDocBtn->setStyleSheet(QString(
@@ -629,7 +693,7 @@ void RightPanel::updateButtonsStyle() {
             "}"
         ).arg(Colors::DISABLE_COLOR.name())
          .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_NORMAL)
+         .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
          .arg(Dimens::PAGE_PADDING));
     }
     
@@ -644,9 +708,9 @@ void RightPanel::updateButtonsStyle() {
             "   font-size: %3px;"
             "   padding: 0 %4px;"
             "}"
-        ).arg(Colors::PRIMARY_COLOR.name())
+        ).arg(Colors::PRIMARY_COLOR.name())  // 主色调
          .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_NORMAL)
+         .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
          .arg(Dimens::PAGE_PADDING));
     } else {
         docSelectionBtn->setStyleSheet(QString(
@@ -660,7 +724,7 @@ void RightPanel::updateButtonsStyle() {
             "}"
         ).arg(Colors::DISABLE_COLOR.name())
          .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_NORMAL)
+         .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
          .arg(Dimens::PAGE_PADDING));
     }
 }

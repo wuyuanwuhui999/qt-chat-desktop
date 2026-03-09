@@ -54,6 +54,7 @@ private slots:
     void onDocSelectionToggled();
     void onModelMenuClicked();
     void onModelSelected();
+    void onSendClicked();          // 发送按钮点击处理
 
 private:
     void setupUI();
@@ -61,6 +62,7 @@ private:
     void loadModelList();
     void showModelPopupMenu();
     void updateCurrentModel(const ModelInfo& model);
+    
     
     // 布局
     QVBoxLayout* mainLayout;
@@ -100,6 +102,9 @@ private:
     bool isSearchDocSelected;      // 查询文档按钮选中状态
     bool isDocSelectionVisible;    // 文档选择按钮可见状态
     QString currentLanguage;       // 当前语言：zh/en
+
+    QPushButton* sendButton;      // 发送按钮
+    
 };
 
 #endif // RIGHTPANEL_H

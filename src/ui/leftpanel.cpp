@@ -1,505 +1,749 @@
 // LeftPanel.cpp
 #include "LeftPanel.h"
-#include <QLabel>
-#include <QScrollArea>
-#include <QScrollBar>
-#include <QDateTime>
-#include <QDebug>
-#include <QFontMetrics>
-#include <QJsonArray>
-
-// 引入需要的头文件
-#include "utils/TokenManager.h"
 #include "network/NetworkManager.h"
+#include "utils/TokenManager.h"
 #include "config/Constants.h"
-#include "models/ApiResponse.h"
-#include "models/User.h"
+#include <QJsonArray>
+#include <QScrollBar>
+#include <QPainter>
+#include <QPainterPath>
+#include <QMessageBox>
+#include <QDebug>
+#include <QMenu>
+#include <QCursor>
+#include <QApplication>
+#include <QScreen>
+#include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonValue>
+#include <QUrl>
+#include <QUrlQuery>
 
-// 时间分类结构体
-struct TimeCategory {
-    QString displayName;
-    QDateTime startTime;
-    QDateTime endTime;
-    QList<QJsonObject> items;
-};
+// 注册自定义类型用于信号槽
+static struct MetaTypeRegistration {
+    MetaTypeRegistration() {
+        qRegisterMetaType<TenantInfo>();
+        qRegisterMetaType<ChatHistory>();
+    }
+} _registration;
 
 LeftPanel::LeftPanel(QWidget *parent)
     : QWidget(parent)
     , currentPageNum(1)
     , pageSize(20)
-    , totalCount(0)
-    , isLoading(false)
-    , hasMoreData(true)
+    , totalChats(0)
+    , isLoadingChats(false)
+    , hasMoreChats(true)
 {
-    setStyleSheet("background-color: #f5f5f5;");
+    setStyleSheet(QString("background-color: white;"));
+    setMinimumWidth(250);
     
     setupUI();
-    loadTenantInfo();
-    loadChatHistory();
+    
+    // 先设置 token
+    QString token = TokenManager::instance().getToken();
+    if (!token.isEmpty()) {
+        NetworkManager::instance().setAuthToken(token);
+        qDebug() << "Set auth token in LeftPanel:" << token.left(20) << "...";
+    } else {
+        qDebug() << "No token found in LeftPanel";
+    }
+    
+    // 加载数据
+    loadUserInfo();
+    loadTenantList();
 }
 
-void LeftPanel::setupUI()
+LeftPanel::~LeftPanel()
 {
+}
+
+void LeftPanel::setupUI() {
     mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
     
-    // 租户信息显示区域
-    tenantWidget = new QWidget(this);
-    tenantWidget->setFixedHeight(80);
-    tenantWidget->setStyleSheet(
-        "QWidget {"
-        "   background-color: white;"
-        "   border-bottom: 1px solid #e0e0e0;"
-        "}"
-    );
+    // 用户信息区域 - 添加底部边框
+    userInfoWidget = new QWidget(this);
+    userInfoWidget->setFixedHeight(Dimens::BAR_HEIGHT);
+    userInfoWidget->setStyleSheet(QString(
+        "background-color: white;"
+        "border-bottom: 1px solid %1;"
+    ).arg(Colors::LINE_COLOR.name()));
     
-    QHBoxLayout* tenantLayout = new QHBoxLayout(tenantWidget);
-    tenantLayout->setContentsMargins(15, 10, 15, 10);
+    userInfoLayout = new QHBoxLayout(userInfoWidget);
+    userInfoLayout->setContentsMargins(Dimens::PAGE_PADDING, 0, Dimens::PAGE_PADDING, 0);
+    userInfoLayout->setSpacing(Dimens::PAGE_PADDING);
     
-    // 租户头像（使用默认图标）
-    tenantAvatarLabel = new QLabel(tenantWidget);
-    tenantAvatarLabel->setFixedSize(50, 50);
-    tenantAvatarLabel->setStyleSheet(
-        "QLabel {"
-        "   background-color: #FFAE00;"
-        "   border-radius: 25px;"
-        "   color: white;"
-        "   font-size: 20px;"
-        "   font-weight: bold;"
-        "   qproperty-alignment: AlignCenter;"
-        "}"
-    );
-    tenantAvatarLabel->setText("私");
+    // 头像
+    avatarLabel = new QLabel(userInfoWidget);
+    avatarLabel->setFixedSize(Dimens::MIDDLE_AVATAR, Dimens::MIDDLE_AVATAR);
+    avatarLabel->setScaledContents(true);
     
-    // 租户信息垂直布局
-    QWidget* tenantInfoWidget = new QWidget(tenantWidget);
-    QVBoxLayout* tenantInfoLayout = new QVBoxLayout(tenantInfoWidget);
-    tenantInfoLayout->setContentsMargins(10, 0, 0, 0);
-    tenantInfoLayout->setSpacing(5);
+    // 用户文本信息
+    userTextLayout = new QVBoxLayout();
+    userTextLayout->setContentsMargins(0, 0, 0, 0);
+    userTextLayout->setSpacing(Dimens::SMALL_MARGIN);
     
-    tenantNameLabel = new QLabel(tenantInfoWidget);
-    tenantNameLabel->setStyleSheet(
-        "QLabel {"
-        "   font-size: 16px;"
-        "   font-weight: bold;"
-        "   color: #333333;"
-        "}"
-    );
+    userNameLabel = new QLabel(userInfoWidget);
+    userNameLabel->setStyleSheet(QString("color: %1; font-size: %2px; font-weight: bold; background-color: transparent;")
+                                .arg(Colors::TEXT_COLOR.name())
+                                .arg(Dimens::FONT_SIZE_NORMAL));
     
-    tenantCodeLabel = new QLabel(tenantInfoWidget);
-    tenantCodeLabel->setStyleSheet(
-        "QLabel {"
-        "   font-size: 12px;"
-        "   color: #999999;"
-        "}"
-    );
-    
-    tenantInfoLayout->addWidget(tenantNameLabel);
-    tenantInfoLayout->addWidget(tenantCodeLabel);
-    tenantInfoLayout->addStretch();
-    
-    tenantLayout->addWidget(tenantAvatarLabel);
-    tenantLayout->addWidget(tenantInfoWidget);
-    
-    mainLayout->addWidget(tenantWidget);
-    
-    // 历史记录标题
-    QWidget* titleWidget = new QWidget(this);
-    titleWidget->setFixedHeight(40);
-    titleWidget->setStyleSheet(
-        "QWidget {"
-        "   background-color: white;"
-        "   border-bottom: 1px solid #e0e0e0;"
-        "}"
-    );
-    
-    QHBoxLayout* titleLayout = new QHBoxLayout(titleWidget);
-    titleLayout->setContentsMargins(15, 0, 15, 0);
-    
-    QLabel* historyTitleLabel = new QLabel("历史对话", titleWidget);
-    historyTitleLabel->setStyleSheet(
-        "QLabel {"
-        "   font-size: 14px;"
-        "   font-weight: bold;"
-        "   color: #333333;"
-        "}"
-    );
-    
-    titleLayout->addWidget(historyTitleLabel);
-    titleLayout->addStretch();
-    
-    mainLayout->addWidget(titleWidget);
-    
-    // 创建滚动区域用于显示历史记录
-    QScrollArea* scrollArea = new QScrollArea(this);
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setStyleSheet(
-        "QScrollArea {"
-        "   background-color: white;"
+    tenantNameBtn = new QPushButton(userInfoWidget);
+    tenantNameBtn->setCursor(Qt::PointingHandCursor);
+    tenantNameBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "   background-color: transparent;"
+        "   color: %1;"
+        "   font-size: %2px;"
         "   border: none;"
+        "   text-align: left;"
+        "   padding: 0;"
         "}"
+        "QPushButton:hover {"
+        "   color: %3;"
+        "}"
+    ).arg(Colors::SUB_TITLE_COLOR.name())
+     .arg(Dimens::FONT_SIZE_NORMAL - 2)
+     .arg(Colors::PRIMARY_COLOR.name()));
+    
+    connect(tenantNameBtn, &QPushButton::clicked, this, &LeftPanel::onTenantMenuClicked);
+    
+    userTextLayout->addWidget(userNameLabel);
+    userTextLayout->addWidget(tenantNameBtn);
+    
+    userInfoLayout->addWidget(avatarLabel);
+    userInfoLayout->addLayout(userTextLayout);
+    userInfoLayout->addStretch();
+    
+    // 新对话按钮区域
+    QWidget* newChatWidget = new QWidget(this);
+    newChatWidget->setFixedHeight(Dimens::BTN_HEIGHT + Dimens::PAGE_PADDING * 2);
+    newChatWidget->setStyleSheet("background-color: white;");
+    
+    QVBoxLayout* newChatLayout = new QVBoxLayout(newChatWidget);
+    newChatLayout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING, 
+                                      Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
+    
+    QPushButton* newChatBtn = new QPushButton("+ 开启新对话", newChatWidget);
+    newChatBtn->setFixedHeight(Dimens::BTN_HEIGHT);
+    newChatBtn->setCursor(Qt::PointingHandCursor);
+    newChatBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "   background-color: %1;"
+        "   color: white;"
+        "   border: none;"
+        "   border-radius: %2px;"
+        "   font-size: %3px;"
+        "   font-weight: bold;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: %4;"
+        "}"
+    ).arg(Colors::PRIMARY_COLOR.name())
+     .arg(Dimens::BTN_HEIGHT / 2)
+     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Colors::PRIMARY_COLOR.lighter(110).name()));
+    
+    connect(newChatBtn, &QPushButton::clicked, [](){
+        qDebug() << "New chat button clicked";
+        // TODO: 实现新对话功能
+    });
+    
+    newChatLayout->addWidget(newChatBtn);
+    
+    // 聊天历史滚动区域
+    chatScrollArea = new QScrollArea(this);
+    chatScrollArea->setWidgetResizable(true);
+    chatScrollArea->setFrameShape(QFrame::NoFrame);
+    chatScrollArea->setStyleSheet("QScrollArea { background-color: white; border: none; }");
+    chatScrollArea->verticalScrollBar()->setStyleSheet(
         "QScrollBar:vertical {"
+        "   background-color: transparent;"
         "   width: 8px;"
-        "   background: #f0f0f0;"
-        "   border-radius: 4px;"
+        "   margin: 0px;"
         "}"
         "QScrollBar::handle:vertical {"
-        "   background: #c0c0c0;"
+        "   background-color: " + Colors::DISABLE_COLOR.name() + ";"
         "   border-radius: 4px;"
+        "   min-height: 20px;"
         "}"
         "QScrollBar::handle:vertical:hover {"
-        "   background: #a0a0a0;"
+        "   background-color: " + Colors::PRIMARY_COLOR.name() + ";"
         "}"
         "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
         "   height: 0px;"
         "}"
     );
     
-    historyContainer = new QWidget();
-    historyContainer->setStyleSheet("background-color: white;");
-    historyLayout = new QVBoxLayout(historyContainer);
-    historyLayout->setContentsMargins(0, 0, 0, 0);
-    historyLayout->setSpacing(0);
-    historyLayout->addStretch(); // 添加弹性空间，使内容从顶部开始
+    chatContainer = new QWidget();
+    chatContainer->setStyleSheet("background-color: white;");
+    chatContainer->installEventFilter(this);
     
-    scrollArea->setWidget(historyContainer);
-    mainLayout->addWidget(scrollArea);
+    chatLayout = new QVBoxLayout(chatContainer);
+    chatLayout->setContentsMargins(Dimens::PAGE_PADDING, 0, Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
+    chatLayout->setSpacing(Dimens::PAGE_PADDING);
+    chatLayout->addStretch();  // 添加弹簧，使内容从顶部开始
     
-    // 连接滚动条的valueChanged信号
-    QScrollBar* scrollBar = scrollArea->verticalScrollBar();
-    connect(scrollBar, &QScrollBar::valueChanged, this, &LeftPanel::onScrollValueChanged);
+    chatScrollArea->setWidget(chatContainer);
     
-    // 加载更多提示
-    loadingLabel = new QLabel("加载中...", this);
-    loadingLabel->setAlignment(Qt::AlignCenter);
-    loadingLabel->setStyleSheet(
-        "QLabel {"
-        "   color: #999999;"
-        "   font-size: 12px;"
-        "   padding: 10px;"
-        "}"
-    );
-    loadingLabel->setVisible(false);
-    mainLayout->addWidget(loadingLabel);
+    // 监听滚动事件
+    QScrollBar* scrollBar = chatScrollArea->verticalScrollBar();
+    connect(scrollBar, &QScrollBar::valueChanged, [this, scrollBar](int value) {
+        if (scrollBar->maximum() > 0 && value >= scrollBar->maximum() - 50) {
+            onScrollToBottom();
+        }
+    });
+    
+    mainLayout->addWidget(userInfoWidget);
+    mainLayout->addWidget(newChatWidget);
+    mainLayout->addWidget(chatScrollArea);
 }
 
-void LeftPanel::loadTenantInfo()
-{
-    User currentUser = TokenManager::instance().getUser();
-    QString userId = currentUser.id;
+void LeftPanel::loadUserInfo() {
+    currentUser = TokenManager::instance().getUser();
     
-    // 先尝试从缓存获取租户信息
-    QSettings settings("YourCompany", "ChatApp");
-    QVariant tenantData = settings.value("tenant_info");
+    // 设置用户名
+    QString displayName = currentUser.username;
+    if (displayName.isEmpty()) {
+        displayName = currentUser.userAccount;
+    }
+    if (displayName.isEmpty()) {
+        displayName = "用户";
+    }
+    userNameLabel->setText(displayName);
     
-    if (tenantData.isValid()) {
-        QJsonObject tenantObj = QJsonDocument::fromJson(tenantData.toByteArray()).object();
-        currentTenant.id = tenantObj["id"].toString();
-        currentTenant.name = tenantObj["name"].toString();
-        currentTenant.code = tenantObj["code"].toString();
-        currentTenant.status = tenantObj["status"].toInt();
-        currentTenant.created_by = tenantObj["created_by"].toString();
+    // 设置头像
+    QPixmap avatar = getAvatarPixmap();
+    avatarLabel->setPixmap(avatar);
+}
+
+QPixmap LeftPanel::getAvatarPixmap() const {
+    QPixmap pixmap;
+    
+    if (!currentUser.avatar.isEmpty()) {
+        QString avatarUrl = Constants::BASE_URL + currentUser.avatar;
+        // TODO: 实现异步加载网络图片
+        // 暂时使用默认头像
+        pixmap.load(":/resources/images/default_avatar.png");
     } else {
-        // 使用默认租户
-        currentTenant.id = userId;  // 租户ID与用户ID相同
-        currentTenant.name = "私人空间";
-        currentTenant.code = "personal";
-        currentTenant.status = 1;
-        currentTenant.created_by = "system";
-        
-        // 保存到缓存
-        QJsonObject tenantObj;
-        tenantObj["id"] = currentTenant.id;
-        tenantObj["name"] = currentTenant.name;
-        tenantObj["code"] = currentTenant.code;
-        tenantObj["status"] = currentTenant.status;
-        tenantObj["created_by"] = currentTenant.created_by;
-        
-        settings.setValue("tenant_info", QJsonDocument(tenantObj).toJson());
+        pixmap.load(":/resources/images/default_avatar.png");
     }
     
-    // 更新UI显示
-    tenantNameLabel->setText(currentTenant.name);
-    tenantCodeLabel->setText(currentTenant.code);
-    
-    // 更新头像文字（取租户名称第一个字）
-    if (!currentTenant.name.isEmpty()) {
-        tenantAvatarLabel->setText(currentTenant.name.left(1));
+    if (pixmap.isNull()) {
+        // 创建默认头像（显示用户首字母）
+        QString initial = currentUser.username.left(1).toUpper();
+        if (initial.isEmpty()) {
+            initial = currentUser.userAccount.left(1).toUpper();
+        }
+        if (initial.isEmpty()) {
+            initial = "U";
+        }
+        
+        pixmap = QPixmap(Dimens::MIDDLE_AVATAR, Dimens::MIDDLE_AVATAR);
+        pixmap.fill(Qt::transparent);
+        
+        QPainter painter(&pixmap);
+        painter.setRenderHint(QPainter::Antialiasing);
+        
+        // 绘制圆形背景
+        QPainterPath path;
+        path.addEllipse(0, 0, Dimens::MIDDLE_AVATAR, Dimens::MIDDLE_AVATAR);
+        painter.fillPath(path, Colors::PRIMARY_COLOR);
+        
+        // 绘制文字
+        painter.setPen(Qt::white);
+        QFont font;
+        font.setPixelSize(Dimens::MIDDLE_AVATAR * 0.4);
+        painter.setFont(font);
+        painter.drawText(pixmap.rect(), Qt::AlignCenter, initial);
+    } else {
+        // 将图片裁剪为圆形
+        QPixmap rounded = QPixmap(pixmap.size());
+        rounded.fill(Qt::transparent);
+        
+        QPainter painter(&rounded);
+        painter.setRenderHint(QPainter::Antialiasing);
+        
+        QPainterPath path;
+        path.addEllipse(0, 0, pixmap.width(), pixmap.height());
+        painter.setClipPath(path);
+        painter.drawPixmap(0, 0, pixmap);
+        
+        pixmap = rounded;
     }
+    
+    return pixmap.scaled(Dimens::MIDDLE_AVATAR, Dimens::MIDDLE_AVATAR, 
+                        Qt::KeepAspectRatio, Qt::SmoothTransformation);
 }
 
-void LeftPanel::loadChatHistory()
-{
-    if (isLoading || !hasMoreData) return;
+void LeftPanel::loadTenantList() {
+    qDebug() << "Loading tenant list from:" << Constants::Endpoints::GET_USER_TENANT_LIST;
     
-    isLoading = true;
-    loadingLabel->setVisible(true);
-    
-    QString tenantId = currentTenant.id;
-    QString url = QString("/service/chat/getChatHistory?tenantId=%1&pageSize=%2&pageNum=%3")
-                     .arg(tenantId)
-                     .arg(pageSize)
-                     .arg(currentPageNum);
+    // 确保 token 已设置
+    QString token = TokenManager::instance().getToken();
+    if (!token.isEmpty()) {
+        NetworkManager::instance().setAuthToken(token);
+        qDebug() << "Refreshed auth token before tenant list request";
+    }
     
     NetworkManager::instance().get(
-        url,
+        Constants::Endpoints::GET_USER_TENANT_LIST,
         [this](const ApiResponse& response) {
-            isLoading = false;
-            loadingLabel->setVisible(false);
+            qDebug() << "Tenant list response - status:" << response.status 
+                     << "message:" << response.message
+                     << "data:" << response.data;
             
             if (response.isSuccess() && !response.data.isNull()) {
-                totalCount = response.total;
+                tenantList.clear();
                 
-                // 检查是否还有更多数据
-                hasMoreData = (pageSize * currentPageNum) < totalCount;
+                QJsonArray tenantArray = response.data.toJsonArray();
+                qDebug() << "Tenant array size:" << tenantArray.size();
                 
-                // 解析数据
-                QJsonArray dataArray = response.data.toJsonArray();
-                if (!dataArray.isEmpty()) {
-                    processChatHistory(dataArray);
-                    currentPageNum++;
+                for (const QJsonValue& value : tenantArray) {
+                    TenantInfo tenant = TenantInfo::fromJson(value.toObject());
+                    tenantList.append(tenant);
+                    qDebug() << "Tenant:" << tenant.id << tenant.name << tenant.code;
                 }
+                
+                // 确定当前租户 - 使用 TokenManager 的公共方法
+                QString cachedTenantId = TokenManager::instance().getValue(Constants::CURRENT_TENANT_ID_KEY).toString();
+                qDebug() << "Cached tenant ID:" << cachedTenantId;
+                
+                bool found = false;
+                
+                // 检查缓存的租户是否在列表中
+                if (!cachedTenantId.isEmpty()) {
+                    for (const TenantInfo& tenant : tenantList) {
+                        if (tenant.id == cachedTenantId) {
+                            currentTenant = tenant;
+                            found = true;
+                            qDebug() << "Found cached tenant:" << tenant.name;
+                            break;
+                        }
+                    }
+                }
+                
+                // 如果没找到，选择第一条
+                if (!found && !tenantList.isEmpty()) {
+                    currentTenant = tenantList.first();
+                    TokenManager::instance().setValue(Constants::CURRENT_TENANT_ID_KEY, currentTenant.id);
+                    qDebug() << "Using first tenant:" << currentTenant.name;
+                }
+                
+                // 如果列表为空，使用默认租户
+                if (tenantList.isEmpty()) {
+                    currentTenant = createDefaultTenant();
+                    qDebug() << "Tenant list empty, using default tenant:" << currentTenant.name;
+                }
+                
+                // 更新租户名称按钮
+                tenantNameBtn->setText(currentTenant.name);
+                
+                // 加载聊天历史
+                loadChatHistory(1, false);
             } else {
-                qDebug() << "Failed to load chat history:" << response.message;
+                qDebug() << "Failed to load tenant list, using default tenant";
+                // 使用默认租户
+                currentTenant = createDefaultTenant();
+                tenantNameBtn->setText(currentTenant.name);
+                loadChatHistory(1, false);
             }
         },
         [this](const QString& error) {
-            isLoading = false;
-            loadingLabel->setVisible(false);
-            qDebug() << "Network error when loading chat history:" << error;
+            qDebug() << "Network error when loading tenant list:" << error;
+            
+            // 如果是认证错误，尝试重新获取 token
+            if (error.contains("authentication") || error.contains("401")) {
+                qDebug() << "Authentication error, token might be expired";
+                // 这里可以触发重新登录
+            }
+            
+            // 使用默认租户
+            currentTenant = createDefaultTenant();
+            tenantNameBtn->setText(currentTenant.name);
+            loadChatHistory(1, false);
         }
     );
 }
 
-void LeftPanel::processChatHistory(const QJsonArray& dataArray)
-{
-    // 按时间分类
-    QMap<QString, TimeCategory> categories;
-    
-    for (const QJsonValue& value : dataArray) {
-        QJsonObject item = value.toObject();
-        QString createTimeStr = item["createTime"].toString();
-        
-        if (createTimeStr.isEmpty()) continue;
-        
-        QDateTime createTime = QDateTime::fromString(createTimeStr, Qt::ISODate);
-        if (!createTime.isValid()) continue;
-        
-        QString categoryKey = getTimeCategoryKey(createTime);
-        QString categoryName = getTimeCategoryName(createTime);
-        
-        if (!categories.contains(categoryKey)) {
-            TimeCategory category;
-            category.displayName = categoryName;
-            categories[categoryKey] = category;
-        }
-        
-        categories[categoryKey].items.append(item);
-    }
-    
-    // 按时间排序分类（最新的在前）
-    QStringList sortedKeys = categories.keys();
-    std::sort(sortedKeys.begin(), sortedKeys.end(), [](const QString& a, const QString& b) {
-        // 根据分类名称排序，假设分类名称包含时间信息
-        return a > b;
-    });
-    
-    // 移除之前的拉伸项
-    if (historyLayout->count() > 0) {
-        QLayoutItem* lastItem = historyLayout->itemAt(historyLayout->count() - 1);
-        if (lastItem && lastItem->spacerItem()) {
-            delete historyLayout->takeAt(historyLayout->count() - 1);
-        }
-    }
-    
-    // 添加新的分类和列表
-    for (const QString& key : sortedKeys) {
-        const TimeCategory& category = categories[key];
-        
-        // 添加分类标题（带横线）
-        QWidget* categoryWidget = createCategoryWidget(category.displayName);
-        historyLayout->addWidget(categoryWidget);
-        
-        // 添加该分类下的所有聊天项
-        for (const QJsonObject& item : category.items) {
-            QWidget* chatItemWidget = createChatItemWidget(item);
-            historyLayout->addWidget(chatItemWidget);
-        }
-    }
-    
-    // 重新添加拉伸项
-    historyLayout->addStretch();
+TenantInfo LeftPanel::createDefaultTenant() const {
+    TenantInfo tenant;
+    tenant.id = currentUser.id;  // 租户ID等于用户ID
+    tenant.name = Constants::DefaultTenant::NAME;
+    tenant.code = Constants::DefaultTenant::CODE;
+    tenant.status = Constants::DefaultTenant::STATUS;
+    tenant.createdBy = Constants::DefaultTenant::CREATED_BY;
+    return tenant;
 }
 
-QString LeftPanel::getTimeCategoryKey(const QDateTime& time)
-{
-    QDateTime now = QDateTime::currentDateTime();
-    qint64 secondsDiff = time.secsTo(now);
+void LeftPanel::onTenantMenuClicked() {
+    qDebug() << "Tenant menu clicked, tenant list size:" << tenantList.size();
     
-    if (secondsDiff < 60) {  // 1分钟内
-        return "just_now";
-    } else if (secondsDiff < 3600) {  // 1小时内
-        return "minutes_ago";
-    } else if (secondsDiff < 30 * 24 * 3600) {  // 30天内
-        return "days_ago";
-    } else if (secondsDiff < 365 * 24 * 3600) {  // 1年内
-        return "months_ago";
-    } else {  // 1年以上
-        return "years_ago";
+    if (tenantList.isEmpty()) {
+        qDebug() << "Tenant list is empty, reloading...";
+        loadTenantList();  // 尝试重新加载租户列表
+        return;
     }
+    
+    showTenantPopupMenu();
 }
 
-QString LeftPanel::getTimeCategoryName(const QDateTime& time)
-{
-    QDateTime now = QDateTime::currentDateTime();
-    qint64 secondsDiff = time.secsTo(now);
-    qint64 minutesDiff = secondsDiff / 60;
-    qint64 hoursDiff = minutesDiff / 60;
-    qint64 daysDiff = hoursDiff / 24;
-    qint64 monthsDiff = daysDiff / 30;
-    qint64 yearsDiff = monthsDiff / 12;
-    
-    if (secondsDiff < 60) {
-        return "刚刚";
-    } else if (secondsDiff < 3600) {
-        return QString("%1分钟前").arg(minutesDiff);
-    } else if (secondsDiff < 30 * 24 * 3600) {
-        if (daysDiff == 0) daysDiff = 1;
-        return QString("%1天前").arg(daysDiff);
-    } else if (secondsDiff < 365 * 24 * 3600) {
-        if (monthsDiff == 0) monthsDiff = 1;
-        return QString("%1个月前").arg(monthsDiff);
-    } else {
-        if (yearsDiff == 0) yearsDiff = 1;
-        return QString("%1年前").arg(yearsDiff);
+void LeftPanel::showTenantPopupMenu() {
+    if (tenantList.isEmpty()) {
+        qDebug() << "Tenant list is empty, cannot show menu";
+        return;
     }
-}
-
-QWidget* LeftPanel::createCategoryWidget(const QString& categoryName)
-{
-    QWidget* widget = new QWidget(historyContainer);
-    widget->setFixedHeight(40);
     
-    QHBoxLayout* layout = new QHBoxLayout(widget);
-    layout->setContentsMargins(15, 0, 15, 0);
+    qDebug() << "Showing tenant popup menu with" << tenantList.size() << "items";
     
-    // 左侧横线
-    QFrame* leftLine = new QFrame(widget);
-    leftLine->setFrameShape(QFrame::HLine);
-    leftLine->setFixedWidth(30);
-    leftLine->setStyleSheet("QFrame { color: #e0e0e0; }");
-    
-    // 分类名称
-    QLabel* nameLabel = new QLabel(categoryName, widget);
-    nameLabel->setStyleSheet(
-        "QLabel {"
-        "   color: #999999;"
-        "   font-size: 12px;"
-        "}"
-    );
-    
-    // 右侧横线（弹性）
-    QFrame* rightLine = new QFrame(widget);
-    rightLine->setFrameShape(QFrame::HLine);
-    rightLine->setStyleSheet("QFrame { color: #e0e0e0; }");
-    
-    layout->addWidget(leftLine);
-    layout->addWidget(nameLabel);
-    layout->addWidget(rightLine, 1);  // 1表示拉伸因子
-    
-    return widget;
-}
-
-QWidget* LeftPanel::createChatItemWidget(const QJsonObject& item)
-{
-    QWidget* widget = new QWidget(historyContainer);
-    widget->setFixedHeight(80);
-    widget->setStyleSheet(
-        "QWidget {"
+    QMenu menu(this);
+    menu.setStyleSheet(QString(
+        "QMenu {"
         "   background-color: white;"
-        "   border-bottom: 1px solid #f0f0f0;"
+        "   border: 1px solid %1;"
+        "   border-radius: %2px;"
+        "   padding: %3px;"
+        "}"
+        "QMenu::item {"
+        "   padding: %3px %4px;"
+        "   border-radius: %2px;"
+        "   color: %5;"
+        "   font-size: %6px;"
+        "}"
+        "QMenu::item:selected {"
+        "   background-color: %7;"
+        "   color: white;"
+        "}"
+    ).arg(Colors::LINE_COLOR.name())
+     .arg(Dimens::SMALL_MARGIN)
+     .arg(Dimens::SMALL_MARGIN)
+     .arg(Dimens::PAGE_PADDING)
+     .arg(Colors::TEXT_COLOR.name())
+     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Colors::PRIMARY_COLOR.name()));
+    
+    for (const TenantInfo& tenant : tenantList) {
+        QAction* action = menu.addAction(tenant.name);
+        action->setData(tenant.id);
+        
+        // 标记当前选中的租户
+        if (tenant.id == currentTenant.id) {
+            QFont font = action->font();
+            font.setBold(true);
+            action->setFont(font);
+        }
+        
+        connect(action, &QAction::triggered, [this, tenant]() {
+            onTenantSelected(tenant);
+        });
+    }
+    
+    // 显示菜单
+    QPoint pos = tenantNameBtn->mapToGlobal(QPoint(0, tenantNameBtn->height()));
+    menu.exec(pos);
+}
+
+void LeftPanel::onTenantSelected(const TenantInfo& tenant) {
+    qDebug() << "Tenant selected:" << tenant.name << tenant.id;
+    
+    if (tenant.id == currentTenant.id) return;
+    
+    currentTenant = tenant;
+    tenantNameBtn->setText(tenant.name);
+    
+    // 保存到缓存 - 使用 TokenManager 的公共方法
+    TokenManager::instance().setValue(Constants::CURRENT_TENANT_ID_KEY, tenant.id);
+    
+    // 清空并重新加载聊天历史
+    clearChatList();
+    currentPageNum = 1;
+    hasMoreChats = true;
+    loadChatHistory(1, false);
+}
+
+void LeftPanel::loadChatHistory(int pageNum, bool append) {
+    if (isLoadingChats || (!hasMoreChats && !append)) return;
+    
+    isLoadingChats = true;
+    
+    // 使用 QUrlQuery 正确构建 URL 参数
+    QUrl url(Constants::BASE_URL + Constants::Endpoints::GET_CHAT_HISTORY);
+    QUrlQuery query;
+    query.addQueryItem("tenantId", currentTenant.id);
+    query.addQueryItem("pageSize", QString::number(pageSize));
+    query.addQueryItem("pageNum", QString::number(pageNum));
+    url.setQuery(query);
+    
+    QString urlString = url.toString();
+    // 移除 BASE_URL 部分，因为 NetworkManager 会添加
+    urlString = urlString.remove(Constants::BASE_URL);
+    
+    qDebug() << "Loading chat history from:" << urlString;
+    
+    // 确保 token 已设置
+    QString token = TokenManager::instance().getToken();
+    if (!token.isEmpty()) {
+        NetworkManager::instance().setAuthToken(token);
+    }
+    
+    NetworkManager::instance().get(
+        urlString,
+        [this, pageNum, append](const ApiResponse& response) {
+            isLoadingChats = false;
+            
+            qDebug() << "Chat history response - status:" << response.status 
+                     << "message:" << response.message
+                     << "total:" << response.total
+                     << "data:" << response.data;
+            
+            if (response.isSuccess()) {
+                QList<ChatHistory> chats;
+                
+                if (!response.data.isNull()) {
+                    QJsonArray chatArray = response.data.toJsonArray();
+                    
+                    qDebug() << "Chat array size:" << chatArray.size();
+                    
+                    for (const QJsonValue& value : chatArray) {
+                        ChatHistory chat = ChatHistory::fromJson(value.toObject());
+                        if (chat.isValid()) {
+                            chats.append(chat);
+                            qDebug() << "Chat:" << chat.id << chat.prompt << chat.createTime;
+                        }
+                    }
+                }
+                
+                totalChats = response.total;
+                hasMoreChats = (pageSize * pageNum) < totalChats;
+                
+                qDebug() << "Loaded" << chats.size() << "chats, total:" << totalChats 
+                         << "hasMore:" << hasMoreChats;
+                
+                updateChatList(chats, totalChats, append);
+            } else {
+                qDebug() << "Failed to load chat history:" << response.message;
+                updateChatList(QList<ChatHistory>(), 0, append);
+            }
+        },
+        [this](const QString& error) {
+            isLoadingChats = false;
+            qDebug() << "Network error when loading chat history:" << error;
+            
+            // 如果是400错误，可能是参数问题，尝试不带参数测试
+            if (error.contains("Bad Request")) {
+                qDebug() << "Bad Request error, checking API endpoint format...";
+            }
+            
+            updateChatList(QList<ChatHistory>(), 0, false);
+        }
+    );
+}
+
+QString LeftPanel::formatTimeLabel(const QDateTime& time) const {
+    QDateTime now = QDateTime::currentDateTime();
+    qint64 seconds = time.secsTo(now);
+    
+    if (seconds < 60) {
+        return "刚刚";
+    } else if (seconds < 3600) {
+        int minutes = seconds / 60;
+        return QString("%1分钟前").arg(minutes);
+    } else if (seconds < 86400) {  // 24小时
+        int hours = seconds / 3600;
+        return QString("%1小时前").arg(hours);
+    } else if (seconds < 2592000) {  // 30天
+        int days = seconds / 86400;
+        return QString("%1天前").arg(days);
+    } else if (seconds < 31536000) {  // 365天
+        int months = seconds / 2592000;
+        return QString("%1个月前").arg(months);
+    } else {
+        int years = seconds / 31536000;
+        return QString("%1年前").arg(years);
+    }
+}
+
+void LeftPanel::updateChatList(const QList<ChatHistory>& newChats, int total, bool append) {
+    if (!append) {
+        clearChatList();
+    }
+    
+    if (newChats.isEmpty()) {
+        // 显示空状态提示
+        QLabel* emptyLabel = new QLabel("暂无历史对话", chatContainer);
+        emptyLabel->setAlignment(Qt::AlignCenter);
+        emptyLabel->setStyleSheet(QString(
+            "color: %1;"
+            "font-size: %2px;"
+            "padding: %3px;"
+            "background-color: transparent;"
+        ).arg(Colors::DISABLE_COLOR.name())
+         .arg(Dimens::FONT_SIZE_NORMAL)
+         .arg(Dimens::PAGE_PADDING * 2));
+        chatLayout->insertWidget(chatLayout->count() - 1, emptyLabel);
+        return;
+    }
+    
+    // 按时间分组
+    QMap<QString, QList<ChatHistory>> groupedChats;
+    for (const ChatHistory& chat : newChats) {
+        QString timeLabel = formatTimeLabel(chat.createTime);
+        groupedChats[timeLabel].append(chat);
+    }
+    
+    // 更新显示
+    for (auto it = groupedChats.begin(); it != groupedChats.end(); ++it) {
+        QString timeLabel = it.key();
+        QList<ChatHistory> chats = it.value();
+        
+        // 添加时间标签
+        QLabel* timeLabelWidget = new QLabel(timeLabel, chatContainer);
+        timeLabelWidget->setStyleSheet(QString(
+            "color: %1;"
+            "font-size: %2px;"
+            "font-weight: bold;"
+            "padding: %3px 0 %3px 0;"
+            "background-color: transparent;"
+        ).arg(Colors::DISABLE_COLOR.name())
+         .arg(Dimens::FONT_SIZE_NORMAL - 2)
+         .arg(Dimens::SMALL_MARGIN));
+        chatLayout->insertWidget(chatLayout->count() - 1, timeLabelWidget);
+        
+        // 添加聊天项
+        for (const ChatHistory& chat : chats) {
+            QWidget* chatItem = createChatItemWidget(chat);
+            chatItem->installEventFilter(this);
+            chatLayout->insertWidget(chatLayout->count() - 1, chatItem);
+        }
+    }
+}
+
+QWidget* LeftPanel::createChatItemWidget(const ChatHistory& chat) {
+    QWidget* widget = new QWidget(chatContainer);
+    widget->setCursor(Qt::PointingHandCursor);
+    widget->setFixedHeight(60);  // 固定高度
+    widget->setObjectName(QString("chat_item_%1").arg(chat.id));
+    widget->setStyleSheet(QString(
+        "QWidget {"
+        "   background-color: transparent;"
+        "   border-radius: %1px;"
         "}"
         "QWidget:hover {"
-        "   background-color: #f9f9f9;"
+        "   background-color: %2;"
         "}"
-    );
+    ).arg(Dimens::SMALL_MARGIN)
+     .arg(Colors::SEARCH_INPUT_COLOR.name()));
     
-    QVBoxLayout* mainLayout = new QVBoxLayout(widget);
-    mainLayout->setContentsMargins(15, 10, 15, 10);
-    mainLayout->setSpacing(5);
+    QVBoxLayout* layout = new QVBoxLayout(widget);
+    layout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::SMALL_MARGIN,
+                               Dimens::PAGE_PADDING, Dimens::SMALL_MARGIN);
+    layout->setSpacing(Dimens::SMALL_MARGIN);
     
-    // 提示词（最多两行，超出显示省略号）
-    QString prompt = item["prompt"].toString();
-    if (prompt.isEmpty()) {
-        prompt = "新对话";
-    }
-    
-    QLabel* promptLabel = new QLabel(prompt, widget);
+    // 提示词
+    QLabel* promptLabel = new QLabel(chat.prompt, widget);
     promptLabel->setWordWrap(true);
-    promptLabel->setStyleSheet(
-        "QLabel {"
-        "   color: #333333;"
-        "   font-size: 14px;"
-        "   font-weight: 500;"
-        "}"
-    );
+    promptLabel->setStyleSheet(QString(
+        "color: %1;"
+        "font-size: %2px;"
+        "background-color: transparent;"
+        "border: none;"
+    ).arg(Colors::TEXT_COLOR.name())
+     .arg(Dimens::FONT_SIZE_NORMAL));
     
-    // 设置最大行数为2
-    QFontMetrics fm(promptLabel->font());
-    QString elidedText = fm.elidedText(prompt, Qt::ElideRight, 250, 2);
-    promptLabel->setText(elidedText);
+    // 限制最多两行
+    promptLabel->setFixedHeight(40);  // 两行高度
     
-    // 时间显示
-    QString createTimeStr = item["createTime"].toString();
-    QDateTime createTime = QDateTime::fromString(createTimeStr, Qt::ISODate);
-    QString timeDisplay = getTimeCategoryName(createTime);
+    layout->addWidget(promptLabel);
     
-    QLabel* timeLabel = new QLabel(timeDisplay, widget);
-    timeLabel->setStyleSheet(
-        "QLabel {"
-        "   color: #999999;"
-        "   font-size: 11px;"
-        "}"
-    );
-    timeLabel->setAlignment(Qt::AlignRight);
-    
-    mainLayout->addWidget(promptLabel);
-    mainLayout->addWidget(timeLabel, 0, Qt::AlignRight);
+    // 存储聊天数据
+    widget->setProperty("chat_id", chat.id);
+    widget->setProperty("chat_prompt", chat.prompt);
+    widget->setProperty("chat_time", chat.createTime.toString(Qt::ISODate));
+    widget->setProperty("chat_model", chat.modelName);
+    widget->setProperty("chat_content", chat.content);
     
     return widget;
 }
 
-void LeftPanel::onScrollValueChanged(int value)
-{
-    QScrollArea* scrollArea = qobject_cast<QScrollArea*>(sender()->parent());
-    if (!scrollArea) return;
-    
-    QScrollBar* scrollBar = scrollArea->verticalScrollBar();
-    if (scrollBar && scrollBar->maximum() - value <= 50) {  // 距离底部50像素内触发加载
-        if (hasMoreData && !isLoading) {
-            loadChatHistory();
-        }
-    }
-}
-
-void LeftPanel::clearHistoryDisplay()
-{
-    // 清除所有现有的历史记录显示
-    QLayoutItem* item;
-    while ((item = historyLayout->takeAt(0)) != nullptr) {
+void LeftPanel::clearChatList() {
+    // 清除所有子控件，保留弹簧
+    while (chatLayout->count() > 1) {
+        QLayoutItem* item = chatLayout->takeAt(0);
         if (item->widget()) {
-            delete item->widget();
+            item->widget()->removeEventFilter(this);
+            item->widget()->deleteLater();
         }
         delete item;
     }
-    historyLayout->addStretch();  // 重新添加拉伸项
+    chatGroups.clear();
 }
 
-void LeftPanel::refreshHistory()
-{
-    currentPageNum = 1;
-    hasMoreData = true;
-    clearHistoryDisplay();
-    loadChatHistory();
+void LeftPanel::onScrollToBottom() {
+    if (hasMoreChats && !isLoadingChats) {
+        currentPageNum++;
+        loadChatHistory(currentPageNum, true);
+    }
+}
+
+void LeftPanel::onChatItemClicked() {
+    QWidget* widget = qobject_cast<QWidget*>(sender());
+    if (!widget) return;
+    
+    int chatId = widget->property("chat_id").toInt();
+    QString prompt = widget->property("chat_prompt").toString();
+    QString timeStr = widget->property("chat_time").toString();
+    QString modelName = widget->property("chat_model").toString();
+    QString content = widget->property("chat_content").toString();
+    
+    // 创建 ChatHistory 对象
+    ChatHistory chat;
+    chat.id = chatId;
+    chat.prompt = prompt;
+    chat.createTime = QDateTime::fromString(timeStr, Qt::ISODate);
+    chat.modelName = modelName;
+    chat.content = content;
+    
+    // 发射信号
+    emit chatSelected(chat);
+}
+
+void LeftPanel::refreshData() {
+    // 刷新数据前确保 token 是最新的
+    QString token = TokenManager::instance().getToken();
+    if (!token.isEmpty()) {
+        NetworkManager::instance().setAuthToken(token);
+    }
+    
+    loadUserInfo();
+    loadTenantList();
+}
+
+bool LeftPanel::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::MouseButtonPress) {
+        // 检查是否是聊天项（通过对象名判断）
+        if (watched->objectName().startsWith("chat_item_")) {
+            QWidget* widget = qobject_cast<QWidget*>(watched);
+            if (widget) {
+                // 创建并发射信号
+                int chatId = widget->property("chat_id").toInt();
+                QString prompt = widget->property("chat_prompt").toString();
+                QString timeStr = widget->property("chat_time").toString();
+                QString modelName = widget->property("chat_model").toString();
+                QString content = widget->property("chat_content").toString();
+                
+                ChatHistory chat;
+                chat.id = chatId;
+                chat.prompt = prompt;
+                chat.createTime = QDateTime::fromString(timeStr, Qt::ISODate);
+                chat.modelName = modelName;
+                chat.content = content;
+                
+                emit chatSelected(chat);
+                return true;
+            }
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }

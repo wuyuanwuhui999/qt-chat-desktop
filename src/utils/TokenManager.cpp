@@ -51,3 +51,12 @@ void TokenManager::clearUser() {
 bool TokenManager::hasValidToken() const {
     return !m_token.isEmpty();
 }
+
+// 新增的公共方法
+void TokenManager::setValue(const QString& key, const QVariant& value) {
+    settings.setValue(key, value);
+}
+
+QVariant TokenManager::getValue(const QString& key, const QVariant& defaultValue) const {
+    return settings.value(key, defaultValue);
+}

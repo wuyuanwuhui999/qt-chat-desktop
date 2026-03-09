@@ -1,3 +1,4 @@
+// TokenManager.h
 #ifndef TOKENMANAGER_H
 #define TOKENMANAGER_H
 
@@ -18,12 +19,16 @@ public:
     void clearUser();
 
     bool hasValidToken() const;
+    
+    // 添加公共方法来访问设置
+    void setValue(const QString& key, const QVariant& value);
+    QVariant getValue(const QString& key, const QVariant& defaultValue = QVariant()) const;
 
 private:
     TokenManager();
     ~TokenManager();
 
-    QSettings settings;
+    QSettings settings;  // 保持私有
     QString m_token;
     User m_user;
 };

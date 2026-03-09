@@ -3,5 +3,6 @@
     <file>images/logo.png</file>
     <file>images/icon_send.png</file>
     <file>images/loading.png</file>
+    <file>images/default_avater.png</file>
 </qresource>
 </RCC>

@@ -11,19 +11,44 @@
 #include <QCursor>
 #include <QMenu>
 #include <QMouseEvent>
+#include <QRandomGenerator>
+#include <QWebSocket>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonValue>
+#include <QTimer>
+#include <QDateTime>
+#include <QPropertyAnimation>
+
+// 注册自定义类型用于信号槽
+static struct MetaTypeRegistration {
+    MetaTypeRegistration() {
+        qRegisterMetaType<MessageBlock>();
+    }
+} _registration;
 
 RightPanel::RightPanel(QWidget *parent)
     : QWidget(parent)
     , isDeepThinkSelected(false)
     , isSearchDocSelected(false)
     , isDocSelectionVisible(false)
-    , currentLanguage("zh")  // 默认中文
+    , currentLanguage("zh")
+    , webSocket(nullptr)
+    , isReceivingMessage(false)
+    , currentMessageId(0)
 {
-    setStyleSheet("background-color: white;");  // 设置背景色为白色
+    setStyleSheet("background-color: white;");
+    
+    // 生成初始会话ID
+    generateNewChatId();
+    
     setupUI();
     
     // 加载模型列表
     loadModelList();
+    
+    // 连接输入框文本变化信号
+    connect(inputEdit, &QTextEdit::textChanged, this, &RightPanel::onInputTextChanged);
 }
 
 void RightPanel::setupUI() {
@@ -34,11 +59,49 @@ void RightPanel::setupUI() {
                                    Dimens::PAGE_PADDING * 2);
     mainLayout->setSpacing(Dimens::PAGE_PADDING * 2);
     
-    // 添加顶部弹性空间，使内容垂直居中
-    mainLayout->addStretch();
+    // ========== 消息显示区域 ==========
+    messageScrollArea = new QScrollArea(this);
+    messageScrollArea->setWidgetResizable(true);
+    messageScrollArea->setFrameShape(QFrame::NoFrame);
+    messageScrollArea->setStyleSheet("QScrollArea { background-color: white; border: none; }");
+    messageScrollArea->verticalScrollBar()->setStyleSheet(
+        "QScrollBar:vertical {"
+        "   background-color: transparent;"
+        "   width: 8px;"
+        "   margin: 0px;"
+        "}"
+        "QScrollBar::handle:vertical {"
+        "   background-color: " + Colors::GRAY_COLOR.name() + ";"
+        "   border-radius: 4px;"
+        "   min-height: 20px;"
+        "}"
+        "QScrollBar::handle:vertical:hover {"
+        "   background-color: " + Colors::PRIMARY_COLOR.name() + ";"
+        "}"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {"
+        "   height: 0px;"
+        "}"
+    );
     
-    // ========== Logo和欢迎语区域 ==========
-    logoLayout = new QHBoxLayout();
+    messageContainer = new QWidget();
+    messageContainer->setStyleSheet("background-color: white;");
+    
+    messageLayout = new QVBoxLayout(messageContainer);
+    messageLayout->setContentsMargins(0, 0, 0, 0);
+    messageLayout->setSpacing(Dimens::PAGE_PADDING);
+    messageLayout->addStretch();  // 添加弹簧，使消息从底部开始
+    
+    messageScrollArea->setWidget(messageContainer);
+    
+    // ========== Logo和欢迎语区域（初始显示）==========
+    logoContainer = new QWidget(this);
+    logoContainer->setStyleSheet("background-color: transparent;");
+    
+    QVBoxLayout* logoContainerLayout = new QVBoxLayout(logoContainer);
+    logoContainerLayout->setContentsMargins(0, 0, 0, 0);
+    logoContainerLayout->setSpacing(Dimens::PAGE_PADDING);
+    
+    QHBoxLayout* logoLayout = new QHBoxLayout();
     logoLayout->setAlignment(Qt::AlignCenter);
     logoLayout->setSpacing(Dimens::PAGE_PADDING);
     
@@ -49,7 +112,6 @@ void RightPanel::setupUI() {
         logoLabel->setPixmap(logoPixmap.scaled(Dimens::MIDDLE_AVATAR, Dimens::MIDDLE_AVATAR,
                                                Qt::KeepAspectRatio, Qt::SmoothTransformation));
     } else {
-        // 如果没有图片，显示文字占位
         logoLabel->setText("📋");
         logoLabel->setStyleSheet(QString("font-size: %1px; color: %2;")
                                 .arg(Dimens::MIDDLE_AVATAR)
@@ -65,23 +127,27 @@ void RightPanel::setupUI() {
         "font-size: %2px;"
         "font-weight: bold;"
         "background-color: transparent;"
-    ).arg(Colors::TEXT_COLOR.name())  // 黑色主标题
+    ).arg(Colors::TEXT_COLOR.name())
      .arg(Dimens::FONT_SIZE_XL));
     
     logoLayout->addWidget(logoLabel);
     logoLayout->addWidget(welcomeLabel);
     
-    // ========== 输入框容器（包含输入框和按钮）==========
+    logoContainerLayout->addStretch();
+    logoContainerLayout->addLayout(logoLayout);
+    logoContainerLayout->addStretch();
+    
+    // ========== 输入框容器（固定在底部）==========
     inputContainer = new QWidget(this);
-    inputContainer->setFixedWidth(900);  // 固定宽度900
-    inputContainer->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);  // 高度根据内容撑开
+    inputContainer->setFixedWidth(900);
+    inputContainer->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);
     inputContainer->setStyleSheet(QString(
         "QWidget {"
         "   background-color: white;"
         "   border: 1px solid %1;"
         "   border-radius: %2px;"
         "}"
-    ).arg(Colors::DISABLE_COLOR.name())
+    ).arg(Colors::GRAY_COLOR.name())
      .arg(Dimens::BIG_BORDER_RADIUS));
     
     containerLayout = new QVBoxLayout(inputContainer);
@@ -94,7 +160,7 @@ void RightPanel::setupUI() {
     // 输入框
     inputEdit = new QTextEdit(inputContainer);
     inputEdit->setPlaceholderText("给chat发送消息");
-    inputEdit->setFrameStyle(QFrame::NoFrame);  // 无边框
+    inputEdit->setFrameStyle(QFrame::NoFrame);
     inputEdit->setMinimumHeight(Dimens::INPUT_HEIGHT);
     inputEdit->setMaximumHeight(Dimens::INPUT_MAX_HEIGHT);
     inputEdit->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::MinimumExpanding);
@@ -128,12 +194,12 @@ void RightPanel::setupUI() {
         "   height: 0px;"
         "}"
     ).arg(Colors::TEXT_COLOR.name())
-     .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
-     .arg(Colors::DISABLE_COLOR.name())
-     .arg(Colors::DISABLE_COLOR.name())
+     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Colors::GRAY_COLOR.name())
+     .arg(Colors::GRAY_COLOR.name())
      .arg(Colors::PRIMARY_COLOR.name()));
     
-    // ========== 顶部按钮区域（模型选择和语言切换）==========
+    // ========== 顶部按钮区域 ==========
     QWidget* topButtonContainer = new QWidget(inputContainer);
     topButtonContainer->setStyleSheet("background-color: transparent; border: none;");
     
@@ -141,7 +207,7 @@ void RightPanel::setupUI() {
     topButtonLayout->setContentsMargins(0, 0, 0, 0);
     topButtonLayout->setSpacing(Dimens::PAGE_PADDING);
     
-    // ========== 模型选择容器（包含模型名称和下拉箭头）==========
+    // 模型选择容器
     modelContainer = new QWidget(topButtonContainer);
     modelContainer->setCursor(Qt::PointingHandCursor);
     modelContainer->setStyleSheet("background-color: transparent; border: none;");
@@ -150,7 +216,6 @@ void RightPanel::setupUI() {
     modelLayout->setContentsMargins(0, 0, 0, 0);
     modelLayout->setSpacing(Dimens::SMALL_MARGIN);
     
-    // 模型名称按钮
     modelNameBtn = new QPushButton("加载模型中...", modelContainer);
     modelNameBtn->setCursor(Qt::PointingHandCursor);
     modelNameBtn->setFixedHeight(Dimens::BTN_HEIGHT);
@@ -168,22 +233,19 @@ void RightPanel::setupUI() {
         "   color: %3;"
         "}"
     ).arg(Colors::TEXT_COLOR.name())
-     .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
-     .arg(Colors::PRIMARY_COLOR.name()));  // 主色调
+     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Colors::PRIMARY_COLOR.name()));
     
-    // 下拉箭头按钮
     modelArrowBtn = new QPushButton(modelContainer);
     modelArrowBtn->setCursor(Qt::PointingHandCursor);
     modelArrowBtn->setFixedSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE);
     
-    // 加载下拉箭头图标
     QPixmap arrowPixmap(":/images/icon_down.png");
     if (!arrowPixmap.isNull()) {
         modelArrowBtn->setIcon(QIcon(arrowPixmap));
         modelArrowBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
         modelArrowBtn->setStyleSheet("QPushButton { background-color: transparent; border: none; }");
     } else {
-        // 如果没有图标，使用文字代替
         modelArrowBtn->setText("▼");
         modelArrowBtn->setStyleSheet(QString(
             "QPushButton {"
@@ -197,22 +259,20 @@ void RightPanel::setupUI() {
             "   color: %3;"
             "}"
         ).arg(Colors::TEXT_COLOR.name())
-         .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
-         .arg(Colors::PRIMARY_COLOR.name()));  // 主色调
+         .arg(Dimens::FONT_SIZE_NORMAL)
+         .arg(Colors::PRIMARY_COLOR.name()));
     }
     
     modelLayout->addWidget(modelNameBtn);
     modelLayout->addWidget(modelArrowBtn);
     
-    // 连接模型选择信号
     connect(modelNameBtn, &QPushButton::clicked, this, &RightPanel::onModelMenuClicked);
     connect(modelArrowBtn, &QPushButton::clicked, this, &RightPanel::onModelMenuClicked);
     
-    // 中英文切换按钮
     languageBtn = new QPushButton("中文", topButtonContainer);
     languageBtn->setCursor(Qt::PointingHandCursor);
     languageBtn->setFixedHeight(Dimens::BTN_HEIGHT);
-    languageBtn->setMinimumWidth(100);
+    languageBtn->setLayoutDirection(Qt::RightToLeft);
     languageBtn->setStyleSheet(QString(
         "QPushButton {"
         "   background-color: transparent;"
@@ -223,28 +283,21 @@ void RightPanel::setupUI() {
         "   text-align: right;"
         "}"
     ).arg(Colors::TEXT_COLOR.name())
-     .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
+     .arg(Dimens::FONT_SIZE_NORMAL)
      .arg(Dimens::PAGE_PADDING));
     
-    // 加载切换图标
     QPixmap switchPixmap(":/images/icon_switch.png");
     if (!switchPixmap.isNull()) {
         languageBtn->setIcon(QIcon(switchPixmap));
         languageBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
     } else {
-        // 如果没有图标，使用文字代替
         qDebug() << "Switch icon not found, using text fallback";
         languageBtn->setText("中文 🔄");
     }
     
-    // 设置图标在文字右侧
-    languageBtn->setLayoutDirection(Qt::RightToLeft);
-    
-    // 添加到顶部按钮布局 - 设置右边距为Dimens::PAGE_PADDING
     topButtonLayout->addWidget(modelContainer);
     topButtonLayout->addStretch();
     topButtonLayout->addWidget(languageBtn);
-    topButtonLayout->setContentsMargins(0, 0, Dimens::PAGE_PADDING, 0);  // 设置右边距
     
     // ========== 底部按钮区域 ==========
     buttonContainer = new QWidget(inputContainer);
@@ -254,7 +307,6 @@ void RightPanel::setupUI() {
     buttonLayout->setContentsMargins(0, 0, 0, 0);
     buttonLayout->setSpacing(Dimens::PAGE_PADDING);
     
-    // 深度思考按钮
     deepThinkBtn = new QPushButton("深度思考", buttonContainer);
     deepThinkBtn->setCursor(Qt::PointingHandCursor);
     deepThinkBtn->setFixedHeight(Dimens::BTN_HEIGHT);
@@ -275,13 +327,12 @@ void RightPanel::setupUI() {
         "   color: white;"
         "   border: 1px solid %5;"
         "}"
-    ).arg(Colors::DISABLE_COLOR.name())
+    ).arg(Colors::GRAY_COLOR.name())
      .arg(Dimens::BTN_HEIGHT / 2)
-     .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
+     .arg(Dimens::FONT_SIZE_NORMAL)
      .arg(Dimens::PAGE_PADDING)
-     .arg(Colors::PRIMARY_COLOR.name()));  // 主色调
+     .arg(Colors::PRIMARY_COLOR.name()));
     
-    // 查询文档按钮
     searchDocBtn = new QPushButton("查询文档", buttonContainer);
     searchDocBtn->setCursor(Qt::PointingHandCursor);
     searchDocBtn->setFixedHeight(Dimens::BTN_HEIGHT);
@@ -302,13 +353,12 @@ void RightPanel::setupUI() {
         "   color: white;"
         "   border: 1px solid %5;"
         "}"
-    ).arg(Colors::DISABLE_COLOR.name())
+    ).arg(Colors::GRAY_COLOR.name())
      .arg(Dimens::BTN_HEIGHT / 2)
-     .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
+     .arg(Dimens::FONT_SIZE_NORMAL)
      .arg(Dimens::PAGE_PADDING)
-     .arg(Colors::PRIMARY_COLOR.name()));  // 主色调
+     .arg(Colors::PRIMARY_COLOR.name()));
     
-    // 文档选择按钮（初始隐藏）
     docSelectionBtn = new QPushButton("选择文档", buttonContainer);
     docSelectionBtn->setCursor(Qt::PointingHandCursor);
     docSelectionBtn->setFixedHeight(Dimens::BTN_HEIGHT);
@@ -330,36 +380,23 @@ void RightPanel::setupUI() {
         "   color: white;"
         "   border: 1px solid %5;"
         "}"
-    ).arg(Colors::DISABLE_COLOR.name())
+    ).arg(Colors::GRAY_COLOR.name())
      .arg(Dimens::BTN_HEIGHT / 2)
-     .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
+     .arg(Dimens::FONT_SIZE_NORMAL)
      .arg(Dimens::PAGE_PADDING)
-     .arg(Colors::PRIMARY_COLOR.name()));  // 主色调
+     .arg(Colors::PRIMARY_COLOR.name()));
     
-    // 发送按钮 - 圆形，背景色为DISABLE_COLOR
     sendButton = new QPushButton(buttonContainer);
     sendButton->setCursor(Qt::PointingHandCursor);
-    sendButton->setFixedSize(Dimens::BTN_HEIGHT, Dimens::BTN_HEIGHT);  // 设置为正方形
-    sendButton->setStyleSheet(QString(
-        "QPushButton {"
-        "   background-color: %1;"
-        "   border: none;"
-        "   border-radius: %2px;"  // 高度的一半，形成圆形
-        "}"
-        "QPushButton:hover {"
-        "   background-color: %3;"
-        "}"
-    ).arg(Colors::DISABLE_COLOR.name())
-     .arg(Dimens::BTN_HEIGHT / 2)
-     .arg(Colors::PRIMARY_COLOR.name()));  // 悬停时使用主色调
+    sendButton->setFixedSize(Dimens::BTN_HEIGHT, Dimens::BTN_HEIGHT);
+    sendButton->setEnabled(false);  // 初始时输入框为空，按钮不可用
+    updateSendButtonStyle(false);
     
-    // 加载发送图标
     QPixmap sendPixmap(":/images/icon_send.png");
     if (!sendPixmap.isNull()) {
         sendButton->setIcon(QIcon(sendPixmap));
         sendButton->setIconSize(QSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE));
     } else {
-        // 如果没有图标，使用文字代替
         sendButton->setText("➤");
         sendButton->setStyleSheet(QString(
             "QPushButton {"
@@ -372,27 +409,24 @@ void RightPanel::setupUI() {
             "QPushButton:hover {"
             "   background-color: %4;"
             "}"
-        ).arg(Colors::DISABLE_COLOR.name())
+        ).arg(Colors::GRAY_COLOR.name())
          .arg(Dimens::BTN_HEIGHT / 2)
          .arg(Dimens::FONT_SIZE_BIG)
          .arg(Colors::PRIMARY_COLOR.name()));
     }
     
-    // 连接信号
     connect(deepThinkBtn, &QPushButton::toggled, this, &RightPanel::onDeepThinkToggled);
     connect(languageBtn, &QPushButton::clicked, this, &RightPanel::onLanguageToggle);
     connect(searchDocBtn, &QPushButton::toggled, this, &RightPanel::onSearchDocToggled);
     connect(docSelectionBtn, &QPushButton::toggled, this, &RightPanel::onDocSelectionToggled);
     connect(sendButton, &QPushButton::clicked, this, &RightPanel::onSendClicked);
     
-    // 将按钮添加到按钮布局
     buttonLayout->addWidget(deepThinkBtn);
     buttonLayout->addWidget(searchDocBtn);
     buttonLayout->addWidget(docSelectionBtn);
-    buttonLayout->addStretch();  // 添加弹性空间
-    buttonLayout->addWidget(sendButton);  // 发送按钮在最右边
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(sendButton);
     
-    // 将所有组件添加到容器布局
     containerLayout->addWidget(topButtonContainer);
     containerLayout->addWidget(inputEdit);
     containerLayout->addWidget(buttonContainer);
@@ -403,19 +437,404 @@ void RightPanel::setupUI() {
     centerInputLayout->addWidget(inputContainer);
     centerInputLayout->addStretch();
     
-    // 添加到主布局
-    mainLayout->addLayout(logoLayout);
-    mainLayout->addSpacing(Dimens::PAGE_PADDING * 2);
-    mainLayout->addLayout(centerInputLayout);
+    // 创建底部容器（包含logoContainer和inputContainer）
+    QWidget* bottomContainer = new QWidget(this);
+    QVBoxLayout* bottomLayout = new QVBoxLayout(bottomContainer);
+    bottomLayout->setContentsMargins(0, 0, 0, 0);
+    bottomLayout->setSpacing(Dimens::PAGE_PADDING * 2);
+    bottomLayout->addWidget(logoContainer);
+    bottomLayout->addLayout(centerInputLayout);
     
-    // 添加底部弹性空间，使内容垂直居中
-    mainLayout->addStretch();
+    // 添加到主布局
+    mainLayout->addWidget(messageScrollArea, 1);  // 消息区域占满剩余空间
+    mainLayout->addWidget(bottomContainer, 0, Qt::AlignHCenter);  // 底部容器水平居中
+}
+
+void RightPanel::updateSendButtonStyle(bool hasText) {
+    if (hasText && !isReceivingMessage) {
+        sendButton->setStyleSheet(QString(
+            "QPushButton {"
+            "   background-color: %1;"
+            "   border: none;"
+            "   border-radius: %2px;"
+            "}"
+            "QPushButton:hover {"
+            "   background-color: %3;"
+            "}"
+        ).arg(Colors::PRIMARY_COLOR.name())
+         .arg(Dimens::BTN_HEIGHT / 2)
+         .arg(Colors::PRIMARY_COLOR.lighter(110).name()));
+        sendButton->setEnabled(true);
+    } else {
+        sendButton->setStyleSheet(QString(
+            "QPushButton {"
+            "   background-color: %1;"
+            "   border: none;"
+            "   border-radius: %2px;"
+            "}"
+        ).arg(Colors::GRAY_COLOR.name())
+         .arg(Dimens::BTN_HEIGHT / 2));
+        sendButton->setEnabled(false);
+    }
+}
+
+void RightPanel::onInputTextChanged() {
+    bool hasText = !inputEdit->toPlainText().trimmed().isEmpty();
+    updateSendButtonStyle(hasText);
+}
+
+QString RightPanel::generateChatId() {
+    const QString possibleCharacters("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789");
+    const int randomStringLength = 32;
+    
+    QString randomString;
+    for(int i = 0; i < randomStringLength; ++i) {
+        int index = QRandomGenerator::global()->bounded(possibleCharacters.length());
+        randomString.append(possibleCharacters.at(index));
+    }
+    return randomString;
+}
+
+void RightPanel::generateNewChatId() {
+    currentChatId = generateChatId();
+    qDebug() << "Generated new chat ID:" << currentChatId;
+}
+
+void RightPanel::clearAllMessages() {
+    // 清除所有消息，保留弹簧
+    while (messageLayout->count() > 1) {
+        QLayoutItem* item = messageLayout->takeAt(0);
+        if (item->widget()) {
+            item->widget()->deleteLater();
+        }
+        delete item;
+    }
+    
+    // 显示logo和欢迎语
+    logoContainer->show();
+    
+    // 重置输入框
+    inputEdit->clear();
+    onInputTextChanged();
+    
+    // 生成新的会话ID
+    generateNewChatId();
+    
+    // 重置接收状态
+    isReceivingMessage = false;
+    if (webSocket) {
+        webSocket->close();
+        webSocket->deleteLater();
+        webSocket = nullptr;
+    }
+}
+
+void RightPanel::connectWebSocket() {
+    if (webSocket) {
+        webSocket->close();
+        webSocket->deleteLater();
+    }
+    
+    webSocket = new QWebSocket();
+    
+    connect(webSocket, &QWebSocket::connected, this, &RightPanel::onWebSocketConnected);
+    connect(webSocket, &QWebSocket::disconnected, this, &RightPanel::onWebSocketDisconnected);
+    connect(webSocket, &QWebSocket::textMessageReceived, this, &RightPanel::onTextMessageReceived);
+    connect(webSocket, &QWebSocket::errorOccurred, this, &RightPanel::onWebSocketError);
+    
+    // 构建WebSocket URL
+    QString token = TokenManager::instance().getToken();
+    QString wsUrl = Constants::WEBSOCKET_CHAT_URL.arg(token);
+    
+    qDebug() << "Connecting to WebSocket:" << wsUrl;
+    webSocket->open(QUrl(wsUrl));
+}
+
+void RightPanel::onWebSocketConnected() {
+    qDebug() << "WebSocket connected successfully";
+    
+    // 隐藏logo和欢迎语
+    logoContainer->hide();
+    
+    // 构建发送消息
+    QJsonObject message;
+    message["modelId"] = currentModel.id;
+    message["chatId"] = currentChatId;
+    
+    // 获取系统提示词
+    QString systemPrompt = TokenManager::instance().getValue("system_prompt", 
+        "你好，我是智能助手小吴同学，请问有什么可以帮助您？").toString();
+    message["systemPrompt"] = systemPrompt;
+    
+    message["type"] = isSearchDocSelected ? "document" : "";
+    message["docIds"] = QJsonArray();  // 暂时为空数组
+    
+    QString inputValue = inputEdit->toPlainText().trimmed();
+    message["prompt"] = inputValue;
+    message["showThink"] = isDeepThinkSelected;
+    
+    // 获取当前租户ID
+    QString tenantId = TokenManager::instance().getValue(Constants::CURRENT_TENANT_ID_KEY).toString();
+    message["tenantId"] = tenantId;
+    
+    message["language"] = currentLanguage;
+    
+    QJsonDocument doc(message);
+    QString messageStr = doc.toJson(QJsonDocument::Compact);
+    
+    qDebug() << "Sending message:" << messageStr;
+    webSocket->sendTextMessage(messageStr);
+    
+    // 在界面上显示用户消息
+    addUserMessage(inputValue);
+    
+    // 清空输入框
+    inputEdit->clear();
+    onInputTextChanged();
+    
+    // 开始接收消息，发送按钮变灰
+    isReceivingMessage = true;
+    updateSendButtonStyle(false);
+}
+
+void RightPanel::addUserMessage(const QString& content) {
+    QWidget* messageWidget = new QWidget(messageContainer);
+    messageWidget->setObjectName(QString("user_msg_%1").arg(++currentMessageId));
+    
+    QHBoxLayout* layout = new QHBoxLayout(messageWidget);
+    layout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING,
+                               Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
+    
+    // 用户头像
+    QLabel* avatarLabel = new QLabel(messageWidget);
+    avatarLabel->setFixedSize(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
+    
+    User currentUser = TokenManager::instance().getUser();
+    if (!currentUser.avatar.isEmpty()) {
+        // 加载头像的逻辑可以复用LeftPanel中的代码
+    } else {
+        QPixmap pixmap(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
+        pixmap.fill(Qt::transparent);
+        
+        QPainter painter(&pixmap);
+        painter.setRenderHint(QPainter::Antialiasing);
+        
+        QPainterPath path;
+        path.addEllipse(0, 0, Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
+        painter.fillPath(path, Colors::PRIMARY_COLOR);
+        
+        painter.setPen(Qt::white);
+        QFont font;
+        font.setPixelSize(Dimens::SMALL_AVATAR * 0.5);
+        painter.setFont(font);
+        
+        QString initial = currentUser.username.left(1).toUpper();
+        if (initial.isEmpty()) initial = "U";
+        painter.drawText(pixmap.rect(), Qt::AlignCenter, initial);
+        
+        avatarLabel->setPixmap(pixmap);
+    }
+    
+    // 消息内容
+    QLabel* contentLabel = new QLabel(content, messageWidget);
+    contentLabel->setWordWrap(true);
+    contentLabel->setStyleSheet(QString(
+        "color: %1;"
+        "font-size: %2px;"
+        "background-color: %3;"
+        "border-radius: %4px;"
+        "padding: %5px;"
+    ).arg(Colors::TEXT_COLOR.name())
+     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Colors::WHITE_COLOR.name())
+     .arg(Dimens::SMALL_MARGIN)
+     .arg(Dimens::PAGE_PADDING));
+    contentLabel->setMaximumWidth(600);
+    
+    layout->addWidget(avatarLabel);
+    layout->addWidget(contentLabel);
+    layout->addStretch();
+    
+    // 插入到弹簧之前
+    messageLayout->insertWidget(messageLayout->count() - 1, messageWidget);
+    
+    // 滚动到底部
+    QTimer::singleShot(100, this, [this]() {
+        messageScrollArea->verticalScrollBar()->setValue(
+            messageScrollArea->verticalScrollBar()->maximum()
+        );
+    });
+}
+
+void RightPanel::addAssistantMessage() {
+    MessageBlock block;
+    block.id = ++currentMessageId;
+    block.isThinking = false;
+    block.thinkContent.clear();
+    block.responseContent.clear();
+    
+    QWidget* messageWidget = new QWidget(messageContainer);
+    messageWidget->setObjectName(QString("assistant_msg_%1").arg(block.id));
+    
+    QHBoxLayout* layout = new QHBoxLayout(messageWidget);
+    layout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING,
+                               Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
+    
+    // 助手头像
+    QLabel* avatarLabel = new QLabel(messageWidget);
+    avatarLabel->setFixedSize(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
+    
+    QPixmap pixmap(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
+    pixmap.fill(Qt::transparent);
+    
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    
+    QPainterPath path;
+    path.addEllipse(0, 0, Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
+    painter.fillPath(path, Colors::GRAY_COLOR);
+    
+    painter.setPen(Qt::white);
+    QFont font;
+    font.setPixelSize(Dimens::SMALL_AVATAR * 0.5);
+    painter.setFont(font);
+    painter.drawText(pixmap.rect(), Qt::AlignCenter, "AI");
+    
+    avatarLabel->setPixmap(pixmap);
+    
+    // 消息内容容器
+    QWidget* contentWidget = new QWidget(messageWidget);
+    QVBoxLayout* contentLayout = new QVBoxLayout(contentWidget);
+    contentLayout->setContentsMargins(0, 0, 0, 0);
+    contentLayout->setSpacing(Dimens::SMALL_MARGIN);
+    
+    // 思考内容标签
+    QLabel* thinkLabel = new QLabel(contentWidget);
+    thinkLabel->setWordWrap(true);
+    thinkLabel->setStyleSheet(QString(
+        "color: %1;"
+        "font-size: %2px;"
+        "background-color: %3;"
+        "border-radius: %4px;"
+        "padding: %5px;"
+    ).arg(Colors::GRAY_COLOR.name())
+     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Colors::WHITE_COLOR.name())
+     .arg(Dimens::SMALL_MARGIN)
+     .arg(Dimens::PAGE_PADDING));
+    thinkLabel->setMaximumWidth(600);
+    thinkLabel->hide();
+    
+    // 响应内容标签
+    QLabel* responseLabel = new QLabel(contentWidget);
+    responseLabel->setWordWrap(true);
+    responseLabel->setStyleSheet(QString(
+        "color: %1;"
+        "font-size: %2px;"
+        "background-color: %3;"
+        "border-radius: %4px;"
+        "padding: %5px;"
+    ).arg(Colors::TEXT_COLOR.name())
+     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Colors::WHITE_COLOR.name())
+     .arg(Dimens::SMALL_MARGIN)
+     .arg(Dimens::PAGE_PADDING));
+    responseLabel->setMaximumWidth(600);
+    
+    contentLayout->addWidget(thinkLabel);
+    contentLayout->addWidget(responseLabel);
+    
+    layout->addWidget(avatarLabel);
+    layout->addWidget(contentWidget);
+    layout->addStretch();
+    
+    messageLayout->insertWidget(messageLayout->count() - 1, messageWidget);
+    
+    block.thinkLabel = thinkLabel;
+    block.responseLabel = responseLabel;
+    block.widget = messageWidget;
+    
+    currentMessageBlock = block;
+    
+    // 滚动到底部
+    QTimer::singleShot(100, this, [this]() {
+        messageScrollArea->verticalScrollBar()->setValue(
+            messageScrollArea->verticalScrollBar()->maximum()
+        );
+    });
+}
+
+void RightPanel::updateCurrentMessage(const QString& content) {
+    if (!currentMessageBlock.widget) return;
+    
+    if (content.startsWith("<think>") && content.endsWith("</think>")) {
+        // 思考内容
+        currentMessageBlock.isThinking = true;
+        QString thinkContent = content.mid(7, content.length() - 15);  // 去掉<think>和</think>
+        currentMessageBlock.thinkContent += thinkContent;
+        
+        if (currentMessageBlock.thinkLabel) {
+            currentMessageBlock.thinkLabel->setText(currentMessageBlock.thinkContent);
+            currentMessageBlock.thinkLabel->show();
+        }
+    } else if (content == "[done]" || content == "[completed]") {
+        // 消息完成
+        isReceivingMessage = false;
+        updateSendButtonStyle(!inputEdit->toPlainText().trimmed().isEmpty());
+        
+        // 重置当前消息块
+        currentMessageBlock = MessageBlock();
+    } else {
+        // 响应内容
+        if (currentMessageBlock.isThinking) {
+            currentMessageBlock.isThinking = false;
+        }
+        currentMessageBlock.responseContent += content;
+        
+        if (currentMessageBlock.responseLabel) {
+            currentMessageBlock.responseLabel->setText(currentMessageBlock.responseContent);
+        }
+    }
+    
+    // 滚动到底部
+    QTimer::singleShot(50, this, [this]() {
+        messageScrollArea->verticalScrollBar()->setValue(
+            messageScrollArea->verticalScrollBar()->maximum()
+        );
+    });
+}
+
+void RightPanel::onWebSocketDisconnected() {
+    qDebug() << "WebSocket disconnected";
+    
+    if (isReceivingMessage) {
+        isReceivingMessage = false;
+        updateSendButtonStyle(!inputEdit->toPlainText().trimmed().isEmpty());
+    }
+}
+
+void RightPanel::onTextMessageReceived(const QString& message) {
+    qDebug() << "Received message:" << message.left(100) << "...";
+    
+    // 如果没有当前消息块，创建一个新的
+    if (!currentMessageBlock.widget) {
+        addAssistantMessage();
+    }
+    
+    // 更新消息
+    updateCurrentMessage(message);
+}
+
+void RightPanel::onWebSocketError(QAbstractSocket::SocketError error) {
+    qDebug() << "WebSocket error:" << error << webSocket->errorString();
+    
+    isReceivingMessage = false;
+    updateSendButtonStyle(!inputEdit->toPlainText().trimmed().isEmpty());
 }
 
 void RightPanel::loadModelList() {
     qDebug() << "Loading model list from:" << Constants::Endpoints::GET_MODEL_LIST;
     
-    // 确保 token 已设置
     QString token = TokenManager::instance().getToken();
     if (!token.isEmpty()) {
         NetworkManager::instance().setAuthToken(token);
@@ -447,13 +866,11 @@ void RightPanel::loadModelList() {
                     return;
                 }
                 
-                // 从缓存中获取上次保存的模型ID
                 QString cachedModelId = TokenManager::instance().getValue(Constants::SELECTED_MODEL_ID_KEY).toString();
                 qDebug() << "Cached model ID:" << cachedModelId;
                 
                 bool found = false;
                 
-                // 检查缓存的模型是否在列表中
                 if (!cachedModelId.isEmpty()) {
                     for (const ModelInfo& model : modelList) {
                         if (model.id == cachedModelId) {
@@ -465,7 +882,6 @@ void RightPanel::loadModelList() {
                     }
                 }
                 
-                // 如果没找到，选择第一条
                 if (!found && !modelList.isEmpty()) {
                     updateCurrentModel(modelList.first());
                     qDebug() << "Using first model:" << modelList.first().modelName;
@@ -513,14 +929,13 @@ void RightPanel::showModelPopupMenu() {
      .arg(Dimens::SMALL_MARGIN)
      .arg(Dimens::PAGE_PADDING)
      .arg(Colors::TEXT_COLOR.name())
-     .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
-     .arg(Colors::PRIMARY_COLOR.name()));  // 主色调
+     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Colors::PRIMARY_COLOR.name()));
     
     for (const ModelInfo& model : modelList) {
         QAction* action = menu.addAction(model.modelName);
         action->setData(model.id);
         
-        // 标记当前选中的模型
         if (model.id == currentModel.id) {
             QFont font = action->font();
             font.setBold(true);
@@ -530,7 +945,6 @@ void RightPanel::showModelPopupMenu() {
         connect(action, &QAction::triggered, this, &RightPanel::onModelSelected);
     }
     
-    // 显示菜单
     QPoint pos = modelContainer->mapToGlobal(QPoint(0, modelContainer->height()));
     menu.exec(pos);
 }
@@ -553,7 +967,6 @@ void RightPanel::updateCurrentModel(const ModelInfo& model) {
     currentModel = model;
     modelNameBtn->setText(model.modelName);
     
-    // 保存到缓存
     TokenManager::instance().setValue(Constants::SELECTED_MODEL_ID_KEY, model.id);
     
     qDebug() << "Model selected:" << model.modelName << model.id;
@@ -564,7 +977,7 @@ void RightPanel::onModelMenuClicked() {
     
     if (modelList.isEmpty()) {
         qDebug() << "Model list is empty, reloading...";
-        loadModelList();  // 尝试重新加载模型列表
+        loadModelList();
         return;
     }
     
@@ -591,19 +1004,14 @@ void RightPanel::onLanguageToggle() {
 void RightPanel::onSearchDocToggled() {
     isSearchDocSelected = searchDocBtn->isChecked();
     
-    // 联动显示/隐藏文档选择按钮
     if (isSearchDocSelected) {
-        // 查询文档选中时，显示文档选择按钮
         docSelectionBtn->setVisible(true);
         isDocSelectionVisible = true;
-        
-        // 可选：添加一个淡入动画效果
         docSelectionBtn->setEnabled(true);
     } else {
-        // 查询文档未选中时，隐藏文档选择按钮
         docSelectionBtn->setVisible(false);
         isDocSelectionVisible = false;
-        docSelectionBtn->setChecked(false);  // 重置选中状态
+        docSelectionBtn->setChecked(false);
     }
     
     qDebug() << "Search doc selected:" << isSearchDocSelected
@@ -618,8 +1026,7 @@ void RightPanel::onDocSelectionToggled() {
 
 void RightPanel::onSendClicked() {
     QString message = inputEdit->toPlainText().trimmed();
-    if (message.isEmpty()) {
-        qDebug() << "Empty message, not sending";
+    if (message.isEmpty() || isReceivingMessage) {
         return;
     }
     
@@ -628,10 +1035,8 @@ void RightPanel::onSendClicked() {
     qDebug() << "Deep think:" << isDeepThinkSelected;
     qDebug() << "Search doc:" << isSearchDocSelected;
     
-    // TODO: 实现发送消息功能
-    
-    // 清空输入框
-    inputEdit->clear();
+    // 连接WebSocket并发送消息
+    connectWebSocket();
 }
 
 void RightPanel::updateButtonsStyle() {
@@ -646,9 +1051,9 @@ void RightPanel::updateButtonsStyle() {
             "   font-size: %3px;"
             "   padding: 0 %4px;"
             "}"
-        ).arg(Colors::PRIMARY_COLOR.name())  // 主色调
+        ).arg(Colors::PRIMARY_COLOR.name())
          .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
+         .arg(Dimens::FONT_SIZE_NORMAL)
          .arg(Dimens::PAGE_PADDING));
     } else {
         deepThinkBtn->setStyleSheet(QString(
@@ -660,9 +1065,9 @@ void RightPanel::updateButtonsStyle() {
             "   font-size: %3px;"
             "   padding: 0 %4px;"
             "}"
-        ).arg(Colors::DISABLE_COLOR.name())
+        ).arg(Colors::GRAY_COLOR.name())
          .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
+         .arg(Dimens::FONT_SIZE_NORMAL)
          .arg(Dimens::PAGE_PADDING));
     }
     
@@ -677,9 +1082,9 @@ void RightPanel::updateButtonsStyle() {
             "   font-size: %3px;"
             "   padding: 0 %4px;"
             "}"
-        ).arg(Colors::PRIMARY_COLOR.name())  // 主色调
+        ).arg(Colors::PRIMARY_COLOR.name())
          .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
+         .arg(Dimens::FONT_SIZE_NORMAL)
          .arg(Dimens::PAGE_PADDING));
     } else {
         searchDocBtn->setStyleSheet(QString(
@@ -691,9 +1096,9 @@ void RightPanel::updateButtonsStyle() {
             "   font-size: %3px;"
             "   padding: 0 %4px;"
             "}"
-        ).arg(Colors::DISABLE_COLOR.name())
+        ).arg(Colors::GRAY_COLOR.name())
          .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
+         .arg(Dimens::FONT_SIZE_NORMAL)
          .arg(Dimens::PAGE_PADDING));
     }
     
@@ -708,9 +1113,9 @@ void RightPanel::updateButtonsStyle() {
             "   font-size: %3px;"
             "   padding: 0 %4px;"
             "}"
-        ).arg(Colors::PRIMARY_COLOR.name())  // 主色调
+        ).arg(Colors::PRIMARY_COLOR.name())
          .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
+         .arg(Dimens::FONT_SIZE_NORMAL)
          .arg(Dimens::PAGE_PADDING));
     } else {
         docSelectionBtn->setStyleSheet(QString(
@@ -722,9 +1127,16 @@ void RightPanel::updateButtonsStyle() {
             "   font-size: %3px;"
             "   padding: 0 %4px;"
             "}"
-        ).arg(Colors::DISABLE_COLOR.name())
+        ).arg(Colors::GRAY_COLOR.name())
          .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_NORMAL)  // 统一字体大小
+         .arg(Dimens::FONT_SIZE_NORMAL)
          .arg(Dimens::PAGE_PADDING));
+    }
+}
+
+RightPanel::~RightPanel() {
+    if (webSocket) {
+        webSocket->close();
+        delete webSocket;
     }
 }

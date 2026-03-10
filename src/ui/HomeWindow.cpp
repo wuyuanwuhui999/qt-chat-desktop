@@ -14,6 +14,10 @@ HomeWindow::HomeWindow(QWidget *parent)
     leftPanel = new LeftPanel(this);
     rightPanel = new RightPanel(this);
     
+    // 连接左侧面板的新对话按钮信号到右侧面板的清空消息方法
+    // 需要先在LeftPanel中添加一个新对话按钮点击的信号
+    connect(leftPanel, &LeftPanel::newChatClicked, rightPanel, &RightPanel::clearAllMessages);
+    
     // 创建水平分割器
     splitter = new QSplitter(Qt::Horizontal, this);
     splitter->addWidget(leftPanel);

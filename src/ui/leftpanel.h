@@ -114,8 +114,9 @@ public:
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 signals:
-    void chatSelected(const ChatHistory& chat);  // 选中聊天项时发射信号
-
+    void chatSelected(const ChatHistory& chat);
+    void newChatClicked();  // 添加新对话点击信号
+    
 private slots:
     void onTenantMenuClicked();
     void onTenantSelected(const TenantInfo& tenant);

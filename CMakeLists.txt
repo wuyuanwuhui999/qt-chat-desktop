@@ -7,8 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)  # 启用资源编译
 
-# 查找Qt6组件
-find_package(Qt6 REQUIRED COMPONENTS Core Widgets Gui Network)
+# 查找Qt6组件 - 添加 WebSockets 模块
+find_package(Qt6 REQUIRED COMPONENTS Core Widgets Gui Network WebSockets)
 
 if(NOT Qt6_FOUND)
     message(FATAL_ERROR "Qt6 not found. Please install Qt6 with required modules.")
@@ -53,12 +53,13 @@ add_executable(chat
     src/config/Constants.h
 )
 
-# 链接Qt库
+# 链接Qt库 - 添加 Qt6::WebSockets
 target_link_libraries(chat
     PRIVATE Qt6::Core
     PRIVATE Qt6::Widgets
     PRIVATE Qt6::Gui
     PRIVATE Qt6::Network
+    PRIVATE Qt6::WebSockets
 )
 
 # 设置包含目录

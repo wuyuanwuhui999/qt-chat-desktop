@@ -145,7 +145,7 @@ void LoginWindow::setupUI() {
     loginButton->setEnabled(false);
     loginButton->setStyleSheet(
         "QPushButton {"
-        "   background-color: " + Colors::DISABLE_COLOR.name() + ";"
+        "   background-color: " + Colors::GRAY_COLOR.name() + ";"
         "   color: white;"
         "   border: none;"
         "   border-radius: " + QString::number(Dimens::BTN_HEIGHT / 2) + "px;"
@@ -162,7 +162,7 @@ void LoginWindow::setupUI() {
         "QPushButton {"
         "   background-color: white;"
         "   color: " + Colors::TEXT_COLOR.name() + ";"
-        "   border: 1px solid " + Colors::DISABLE_COLOR.name() + ";"
+        "   border: 1px solid " + Colors::GRAY_COLOR.name() + ";"
         "   border-radius: " + QString::number(Dimens::BTN_HEIGHT / 2) + "px;"
         "   font-size: 16px;"
         "}"
@@ -233,7 +233,7 @@ void LoginWindow::setupPasswordLoginPanel() {
     usernameEdit->setFixedHeight(Dimens::INPUT_HEIGHT);
     usernameEdit->setStyleSheet(
         "QLineEdit {"
-        "   border: 1px solid " + Colors::DISABLE_COLOR.name() + ";"
+        "   border: 1px solid " + Colors::GRAY_COLOR.name() + ";"
         "   border-radius: " + QString::number(Dimens::INPUT_HEIGHT / 2) + "px;"
         "   padding: 0 15px;"
         "   font-size: 14px;"
@@ -252,7 +252,7 @@ void LoginWindow::setupPasswordLoginPanel() {
     passwordEdit->setFixedHeight(Dimens::INPUT_HEIGHT);
     passwordEdit->setStyleSheet(
         "QLineEdit {"
-        "   border: 1px solid " + Colors::DISABLE_COLOR.name() + ";"
+        "   border: 1px solid " + Colors::GRAY_COLOR.name() + ";"
         "   border-radius: " + QString::number(Dimens::INPUT_HEIGHT / 2) + "px;"
         "   padding: 0 15px;"
         "   font-size: 14px;"
@@ -289,7 +289,7 @@ void LoginWindow::setupEmailLoginPanel() {
     emailEdit->setFixedHeight(Dimens::INPUT_HEIGHT);
     emailEdit->setStyleSheet(
         "QLineEdit {"
-        "   border: 1px solid " + Colors::DISABLE_COLOR.name() + ";"
+        "   border: 1px solid " + Colors::GRAY_COLOR.name() + ";"
         "   border-radius: " + QString::number(Dimens::INPUT_HEIGHT / 2) + "px;"
         "   padding: 0 15px;"
         "   padding-right: 40px;"  // 为图标预留空间
@@ -328,7 +328,7 @@ void LoginWindow::setupEmailLoginPanel() {
     codeEdit->setFixedHeight(Dimens::INPUT_HEIGHT);
     codeEdit->setStyleSheet(
         "QLineEdit {"
-        "   border: 1px solid " + Colors::DISABLE_COLOR.name() + ";"
+        "   border: 1px solid " + Colors::GRAY_COLOR.name() + ";"
         "   border-radius: " + QString::number(Dimens::INPUT_HEIGHT / 2) + "px;"
         "   padding: 0 15px;"
         "   font-size: 14px;"
@@ -435,7 +435,7 @@ void LoginWindow::onUsernamePasswordChanged() {
     } else {
         loginButton->setStyleSheet(
             "QPushButton {"
-            "   background-color: " + Colors::DISABLE_COLOR.name() + ";"
+            "   background-color: " + Colors::GRAY_COLOR.name() + ";"
             "   color: white;"
             "   border: none;"
             "   border-radius: " + QString::number(Dimens::BTN_HEIGHT / 2) + "px;"
@@ -484,7 +484,7 @@ void LoginWindow::onCodeChanged(const QString& code) {
     } else {
         loginButton->setStyleSheet(
             "QPushButton {"
-            "   background-color: " + Colors::DISABLE_COLOR.name() + ";"
+            "   background-color: " + Colors::GRAY_COLOR.name() + ";"
             "   color: white;"
             "   border: none;"
             "   border-radius: " + QString::number(Dimens::BTN_HEIGHT / 2) + "px;"

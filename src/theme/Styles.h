@@ -33,7 +33,7 @@ namespace Styles {
         .arg(Dimens::FONT_SIZE_NORMAL)
         .arg(Colors::PRIMARY_COLOR.lighter(110).name())
         .arg(Colors::PRIMARY_COLOR.darker(110).name())
-        .arg(Colors::DISABLE_COLOR.name());
+        .arg(Colors::GRAY_COLOR.name());
     }
     
     // 输入框样式
@@ -67,7 +67,7 @@ namespace Styles {
             "   border-radius: %2px;"
             "}"
         )
-        .arg(Colors::MODULE_BACKGROUND_COLOR.name())
+        .arg(Colors::WHITE_COLOR.name())
         .arg(Dimens::MODULE_BORDER_RADIUS);
     }
 }

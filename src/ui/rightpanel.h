@@ -1,3 +1,4 @@
+// RightPanel.h
 #ifndef RIGHTPANEL_H
 #define RIGHTPANEL_H
 
@@ -11,8 +12,10 @@
 #include <QButtonGroup>
 #include <QMenu>
 #include <QAction>
-#include <QJsonObject>  // 添加这个头文件
-#include <QJsonArray>   // 添加这个头文件
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QWebSocket>
+#include <QAbstractSocket>
 #include "theme/Colors.h"
 #include "theme/Dimens.h"
 
@@ -37,8 +40,20 @@ struct ModelInfo {
     bool isValid() const { return !id.isEmpty() && !modelName.isEmpty(); }
 };
 
-// 用于信号槽传递的自定义类型注册
-Q_DECLARE_METATYPE(ModelInfo)
+// 消息块结构体
+struct MessageBlock {
+    int id;
+    bool isThinking;
+    QString thinkContent;
+    QString responseContent;
+    QLabel* thinkLabel;
+    QLabel* responseLabel;
+    QWidget* widget;
+    
+    MessageBlock() : id(0), isThinking(false), thinkLabel(nullptr), responseLabel(nullptr), widget(nullptr) {}
+};
+
+Q_DECLARE_METATYPE(MessageBlock)
 
 class RightPanel : public QWidget
 {
@@ -46,6 +61,10 @@ class RightPanel : public QWidget
 
 public:
     explicit RightPanel(QWidget *parent = nullptr);
+    ~RightPanel();
+    
+    // 清空所有消息
+    void clearAllMessages();
 
 private slots:
     void onDeepThinkToggled();
@@ -54,28 +73,45 @@ private slots:
     void onDocSelectionToggled();
     void onModelMenuClicked();
     void onModelSelected();
-    void onSendClicked();          // 发送按钮点击处理
+    void onSendClicked();
+    void onInputTextChanged();
+    
+    // WebSocket相关槽函数
+    void onWebSocketConnected();
+    void onWebSocketDisconnected();
+    void onTextMessageReceived(const QString& message);
+    void onWebSocketError(QAbstractSocket::SocketError error);
 
 private:
     void setupUI();
     void updateButtonsStyle();
+    void updateSendButtonStyle(bool hasText);
     void loadModelList();
     void showModelPopupMenu();
     void updateCurrentModel(const ModelInfo& model);
-    
+    QString generateChatId();
+    void generateNewChatId();
+    void connectWebSocket();
+    void addUserMessage(const QString& content);
+    void addAssistantMessage();
+    void updateCurrentMessage(const QString& content);
     
     // 布局
     QVBoxLayout* mainLayout;
-    QHBoxLayout* logoLayout;
     
-    // Logo和欢迎语
+    // 消息显示区域
+    QScrollArea* messageScrollArea;
+    QWidget* messageContainer;
+    QVBoxLayout* messageLayout;
+    
+    // Logo和欢迎语容器
+    QWidget* logoContainer;
     QLabel* logoLabel;
     QLabel* welcomeLabel;
     
-    // 输入框容器（包含输入框和按钮）
+    // 输入框容器
     QWidget* inputContainer;
-    QVBoxLayout* containerLayout;  // 容器的主布局
-    
+    QVBoxLayout* containerLayout;
     QTextEdit* inputEdit;
     
     // 按钮容器
@@ -89,22 +125,30 @@ private:
     QPushButton* docSelectionBtn;
     
     // 模型选择相关
-    QWidget* modelContainer;        // 模型选择容器
-    QHBoxLayout* modelLayout;       // 模型选择布局
-    QPushButton* modelNameBtn;      // 模型名称按钮（可点击）
-    QPushButton* modelArrowBtn;     // 模型下拉箭头按钮
+    QWidget* modelContainer;
+    QHBoxLayout* modelLayout;
+    QPushButton* modelNameBtn;
+    QPushButton* modelArrowBtn;
     
-    QList<ModelInfo> modelList;     // 模型列表
-    ModelInfo currentModel;          // 当前选中的模型
+    QList<ModelInfo> modelList;
+    ModelInfo currentModel;
     
     // 状态变量
-    bool isDeepThinkSelected;      // 深度思考按钮选中状态
-    bool isSearchDocSelected;      // 查询文档按钮选中状态
-    bool isDocSelectionVisible;    // 文档选择按钮可见状态
-    QString currentLanguage;       // 当前语言：zh/en
-
-    QPushButton* sendButton;      // 发送按钮
+    bool isDeepThinkSelected;
+    bool isSearchDocSelected;
+    bool isDocSelectionVisible;
+    QString currentLanguage;
     
+    QPushButton* sendButton;
+    
+    // WebSocket相关
+    QWebSocket* webSocket;
+    bool isReceivingMessage;
+    QString currentChatId;
+    
+    // 消息相关
+    int currentMessageId;
+    MessageBlock currentMessageBlock;
 };
 
 #endif // RIGHTPANEL_H

@@ -38,7 +38,7 @@ LeftPanel::LeftPanel(QWidget *parent)
     , isLoadingChats(false)
     , hasMoreChats(true)
 {
-    setStyleSheet(QString("background-color: white;"));
+    setStyleSheet(QString("background-color: 1%;").arg(Colors::WHITE_COLOR.name()));
     setMinimumWidth(250);
     
     setupUI();
@@ -179,29 +179,14 @@ void LeftPanel::setupUI() {
     newChatLayout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING, 
                                       Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
     
-    QPushButton* newChatBtn = new QPushButton("+ 开启新对话", newChatWidget);
+     QPushButton* newChatBtn = new QPushButton("+ 开启新对话", newChatWidget);
     newChatBtn->setFixedHeight(Dimens::BTN_HEIGHT);
     newChatBtn->setCursor(Qt::PointingHandCursor);
-    newChatBtn->setStyleSheet(QString(
-        "QPushButton {"
-        "   background-color: %1;"
-        "   color: white;"
-        "   border: none;"
-        "   border-radius: %2px;"
-        "   font-size: %3px;"
-        "   font-weight: bold;"
-        "}"
-        "QPushButton:hover {"
-        "   background-color: %4;"
-        "}"
-    ).arg(Colors::PRIMARY_COLOR.name())
-     .arg(Dimens::BTN_HEIGHT / 2)
-     .arg(Dimens::FONT_SIZE_NORMAL)
-     .arg(Colors::PRIMARY_COLOR.lighter(110).name()));
+    newChatBtn->setStyleSheet(...);
     
-    connect(newChatBtn, &QPushButton::clicked, [](){
+    connect(newChatBtn, &QPushButton::clicked, [this](){
         qDebug() << "New chat button clicked";
-        // TODO: 实现新对话功能
+        emit newChatClicked();  // 发射新对话信号
     });
     
     newChatLayout->addWidget(newChatBtn);
@@ -218,7 +203,7 @@ void LeftPanel::setupUI() {
         "   margin: 0px;"
         "}"
         "QScrollBar::handle:vertical {"
-        "   background-color: " + Colors::DISABLE_COLOR.name() + ";"
+        "   background-color: " + Colors::GRAY_COLOR.name() + ";"
         "   border-radius: 4px;"
         "   min-height: 20px;"
         "}"
@@ -659,7 +644,7 @@ void LeftPanel::updateChatList(const QList<ChatHistory>& newChats, int total, bo
             "font-size: %2px;"
             "padding: %3px;"
             "background-color: transparent;"
-        ).arg(Colors::DISABLE_COLOR.name())
+        ).arg(Colors::GRAY_COLOR.name())
          .arg(Dimens::FONT_SIZE_NORMAL)
          .arg(Dimens::PAGE_PADDING * 2));
         chatLayout->insertWidget(chatLayout->count() - 1, emptyLabel);
@@ -686,7 +671,7 @@ void LeftPanel::updateChatList(const QList<ChatHistory>& newChats, int total, bo
             "font-weight: bold;"
             "padding: %3px 0 %3px 0;"
             "background-color: transparent;"
-        ).arg(Colors::DISABLE_COLOR.name())
+        ).arg(Colors::GRAY_COLOR.name())
          .arg(Dimens::FONT_SIZE_NORMAL - 2)
          .arg(Dimens::SMALL_MARGIN));
         chatLayout->insertWidget(chatLayout->count() - 1, timeLabelWidget);

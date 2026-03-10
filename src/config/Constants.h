@@ -1,19 +1,17 @@
-// Constants.h
-#ifndef CONSTANTS_H
-#define CONSTANTS_H
-
-#include <QString>
-
+// Constants.h (需要添加的部分)
 namespace Constants {
     // API 基础URL
     const QString BASE_URL = "http://192.168.73.8:3000";
+    
+    // WebSocket 聊天URL
+    const QString WEBSOCKET_CHAT_URL = "ws://192.168.73.8:3000/service/chat/ws/chat?token=Bearer %1";
 
     // 缓存键
     const QString TOKEN_KEY = "jwt_token";
     const QString USER_KEY = "user_data";
     const QString CURRENT_TENANT_ID_KEY = "current_tenant_id";
-    const QString SELECTED_MODEL_ID_KEY = "selected_model_id";  // 新增：选中的模型ID
-
+    const QString SELECTED_MODEL_ID_KEY = "selected_model_id";
+    
     // API 端点
     namespace Endpoints {
         // 用户相关
@@ -27,9 +25,7 @@ namespace Constants {
         
         // 聊天相关
         const QString GET_CHAT_HISTORY = "/service/chat/getChatHistory";
-        const QString GET_MODEL_LIST = "/service/chat/getModelList";  // 新增：获取模型列表
-        
-        // 其他端点...
+        const QString GET_MODEL_LIST = "/service/chat/getModelList";
     }
 
     // 默认租户
@@ -39,7 +35,4 @@ namespace Constants {
         const int STATUS = 1;
         const QString CREATED_BY = "system";
     }
-
 }
-
-#endif // CONSTANTS_H

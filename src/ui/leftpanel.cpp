@@ -182,7 +182,22 @@ void LeftPanel::setupUI() {
      QPushButton* newChatBtn = new QPushButton("+ 开启新对话", newChatWidget);
     newChatBtn->setFixedHeight(Dimens::BTN_HEIGHT);
     newChatBtn->setCursor(Qt::PointingHandCursor);
-    newChatBtn->setStyleSheet(...);
+    newChatBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "   background-color: %1;"
+        "   color: white;"
+        "   border: none;"
+        "   border-radius: %2px;"
+        "   font-size: %3px;"
+        "   font-weight: bold;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: %4;"
+        "}"
+    ).arg(Colors::PRIMARY_COLOR.name())
+     .arg(Dimens::BTN_HEIGHT / 2)
+     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Colors::PRIMARY_COLOR.lighter(110).name()));
     
     connect(newChatBtn, &QPushButton::clicked, [this](){
         qDebug() << "New chat button clicked";

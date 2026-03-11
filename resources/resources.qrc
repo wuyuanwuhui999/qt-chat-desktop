@@ -5,5 +5,7 @@
     <file>images/loading.png</file>
     <file>images/icon_switch.png</file>
     <file>images/icon_down.png</file>
+    <file>images/icon_edit.png</file>
+    <file>images/icon_exit_edit.png</file>
 </qresource>
 </RCC>

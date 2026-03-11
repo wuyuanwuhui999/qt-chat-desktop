@@ -82,6 +82,9 @@ private slots:
     void onTextMessageReceived(const QString& message);
     void onWebSocketError(QAbstractSocket::SocketError error);
 
+    void onEditPromptClicked();  // 编辑提示词按钮点击
+
+
 private:
     void setupUI();
     void updateButtonsStyle();
@@ -149,6 +152,11 @@ private:
     // 消息相关
     int currentMessageId;
     MessageBlock currentMessageBlock;
+
+    QPushButton* editPromptBtn;  // 编辑提示词按钮
+    bool isEditingPrompt;        // 是否正在编辑提示词
+    QString savedInputContent;   // 保存的输入框内容
+
 };
 
 #endif // RIGHTPANEL_H

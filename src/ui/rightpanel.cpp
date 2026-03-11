@@ -397,30 +397,31 @@ void RightPanel::setupUI() {
     // 编辑提示词按钮
     editPromptBtn = new QPushButton(buttonContainer);
     editPromptBtn->setCursor(Qt::PointingHandCursor);
-    editPromptBtn->setFixedSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE);
-    editPromptBtn->setStyleSheet(QString(
-        "QPushButton {"
-        "   background-color: transparent;"
-        "   border: none;"
-        "   icon: url(:/images/icon_edit.png);"
-        "   icon-size: %1px;"
-        "}"
-        "QPushButton:hover {"
-        "   opacity: 0.8;"
-        "}"
-    ).arg(Dimens::MIDDLE_AVATAR));
+    editPromptBtn->setFixedSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE);
     
-    // 设置按钮透明度为50%
-    QPixmap editPixmap(":/images/icon_edit.png");
+    // 设置初始图标为 icon_edit.png (带50%透明度)
+        QPixmap editPixmap(":/images/icon_edit.png");
     if (!editPixmap.isNull()) {
         QPixmap transparentPixmap(editPixmap.size());
         transparentPixmap.fill(Qt::transparent);
         QPainter painter(&transparentPixmap);
-        painter.setOpacity(0.5);
+        painter.setOpacity(0.5); // 50% 透明度
         painter.drawPixmap(0, 0, editPixmap);
         editPromptBtn->setIcon(QIcon(transparentPixmap));
-        editPromptBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
+        editPromptBtn->setIconSize(QSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE));
+    } else {
+        editPromptBtn->setText("✏️"); //  fallback
     }
+
+    editPromptBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "   background-color: transparent;"
+        "   border: none;"
+        "}"
+        "QPushButton:hover {"
+        "   opacity: 0.8;"
+        "}"
+    ));
     
     sendButton = new QPushButton(buttonContainer);
     sendButton->setCursor(Qt::PointingHandCursor);
@@ -1101,41 +1102,44 @@ void RightPanel::onDocSelectionToggled() {
 }
 
 void RightPanel::onEditPromptClicked() {
+    // 定义一个 Lambda 表达式用于加载带透明度的图标，避免代码重复
+    auto setIconWithOpacity = [this](const QString& imagePath, double opacity) {
+        QPixmap pixmap(imagePath);
+        if (!pixmap.isNull()) {
+            QPixmap resultPixmap(pixmap.size());
+            resultPixmap.fill(Qt::transparent);
+            QPainter painter(&resultPixmap);
+            painter.setOpacity(opacity);
+            painter.drawPixmap(0, 0, pixmap);
+            editPromptBtn->setIcon(QIcon(resultPixmap));
+            editPromptBtn->setIconSize(QSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE));
+        } else {
+            // Fallback 文本
+            editPromptBtn->setText(imagePath.contains("exit") ? "❌" : "✏️");
+        }
+    };
+
     if (isEditingPrompt) {
-        // 退出编辑模式
+        // --- 退出编辑模式 ---
         QString newSystemPrompt = inputEdit->toPlainText().trimmed();
         if (!newSystemPrompt.isEmpty()) {
-            // 保存新的system prompt到缓存
             TokenManager::instance().setValue("system_prompt", newSystemPrompt);
-            // 设置为placeholder
             inputEdit->setPlaceholderText(newSystemPrompt);
         }
         
-        // 恢复输入框内容
         inputEdit->setPlainText(savedInputContent);
         savedInputContent.clear();
         
-        // 恢复输入框样式（无边框）
         inputEdit->setStyleSheet(inputEdit->styleSheet().replace(
             QString("border: 1px solid %1;").arg(Colors::GRAY_COLOR.name()), 
             "border: none;"
         ));
         
-        // 恢复按钮图标为编辑图标
-        QPixmap editPixmap(":/images/icon_edit.png");
-        if (!editPixmap.isNull()) {
-            QPixmap transparentPixmap(editPixmap.size());
-            transparentPixmap.fill(Qt::transparent);
-            QPainter painter(&transparentPixmap);
-            painter.setOpacity(0.5);
-            painter.drawPixmap(0, 0, editPixmap);
-            editPromptBtn->setIcon(QIcon(transparentPixmap));
-            editPromptBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
-        }
+        // 【修改点】切换回 icon_edit.png，并应用 50% 透明度
+        setIconWithOpacity(":/images/icon_edit.png", 0.5);
         
         isEditingPrompt = false;
         
-        // 恢复按钮状态
         deepThinkBtn->setEnabled(true);
         searchDocBtn->setEnabled(true);
         modelContainer->setEnabled(true);
@@ -1143,28 +1147,21 @@ void RightPanel::onEditPromptClicked() {
         sendButton->setEnabled(!inputEdit->toPlainText().trimmed().isEmpty());
         
     } else {
-        // 进入编辑模式
+        // --- 进入编辑模式 ---
         savedInputContent = inputEdit->toPlainText();
-        
-        // 把placeholder内容放到输入框中
         inputEdit->setPlainText(inputEdit->placeholderText());
         
-        // 移除边框样式（保持无边框）
         inputEdit->setStyleSheet(inputEdit->styleSheet().replace(
             "border: 1px solid " + Colors::GRAY_COLOR.name() + ";", 
             ""
         ));
         
-        // 修改按钮图标为退出编辑图标
-        QPixmap exitEditPixmap(":/images/icon_exit_edit.png");
-        if (!exitEditPixmap.isNull()) {
-            editPromptBtn->setIcon(QIcon(exitEditPixmap));
-            editPromptBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
-        }
+        // 【修改点】切换为 icon_exit_edit.png，并应用 50% 透明度
+        // 之前这里是直接加载不透明图片，现在统一改为 0.5 透明度
+        setIconWithOpacity(":/images/icon_exit_edit.png", 0.5);
         
         isEditingPrompt = true;
         
-        // 禁用其他按钮
         deepThinkBtn->setEnabled(false);
         searchDocBtn->setEnabled(false);
         modelContainer->setEnabled(false);

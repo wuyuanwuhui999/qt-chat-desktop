@@ -11,6 +11,10 @@ namespace Constants {
     const QString USER_KEY = "user_data";
     const QString CURRENT_TENANT_ID_KEY = "current_tenant_id";
     const QString SELECTED_MODEL_ID_KEY = "selected_model_id";
+    const QString SYSTEM_PROMPT_PREFIX = "system_prompt_"; // 租户系统提示词前缀
+    
+    // 默认系统提示词
+    const QString DEFAULT_SYSTEM_PROMPT = "你叫小吴同学，是一个无所不能的AI助手，上知天文下知地理，请用小吴同学的身份回答问题。";
     
     // API 端点
     namespace Endpoints {
@@ -26,6 +30,9 @@ namespace Constants {
         // 聊天相关
         const QString GET_CHAT_HISTORY = "/service/chat/getChatHistory";
         const QString GET_MODEL_LIST = "/service/chat/getModelList";
+        
+        // 提示词相关
+        const QString GET_DEFAULT_PROMPT_BY_TENANT_ID = "/service/prompt/getDefaultPromptByTenantId";
     }
 
     // 默认租户

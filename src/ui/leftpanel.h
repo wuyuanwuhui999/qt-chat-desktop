@@ -116,12 +116,15 @@ public:
 signals:
     void chatSelected(const ChatHistory& chat);
     void newChatClicked();  // 添加新对话点击信号
+    void tenantChanged(const QString& tenantId);  // 租户切换信号
     
 private slots:
     void onTenantMenuClicked();
     void onTenantSelected(const TenantInfo& tenant);
     void onScrollToBottom();
     void onChatItemClicked();
+
+    
 
 private:
     void setupUI();

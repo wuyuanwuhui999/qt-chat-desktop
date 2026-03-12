@@ -65,6 +65,9 @@ public:
     
     // 清空所有消息
     void clearAllMessages();
+    
+    // 刷新当前租户的系统提示词
+    void refreshSystemPrompt(const QString& tenantId);
 
 private slots:
     void onDeepThinkToggled();
@@ -84,9 +87,21 @@ private slots:
 
     void onEditPromptClicked();  // 编辑提示词按钮点击
 
-
 private:
+    // UI 设置方法 - 拆分后的方法
     void setupUI();
+    void setupMessageArea();
+    void setupLogoArea();
+    void setupInputArea();
+    void setupInputEdit();
+    QWidget* createTopButtonArea();
+    void setupModelSelection();
+    void setupButtonArea();
+    void createFunctionButtons();
+    void createActionButtons();
+    QWidget* createBottomContainer();
+    
+    // 原有方法
     void updateButtonsStyle();
     void updateSendButtonStyle(bool hasText);
     void loadModelList();
@@ -98,6 +113,16 @@ private:
     void addUserMessage(const QString& content);
     void addAssistantMessage();
     void updateCurrentMessage(const QString& content);
+    
+    // 系统提示词相关方法
+    void loadSystemPrompt(const QString& tenantId);
+    QString getSystemPromptCacheKey(const QString& tenantId) const;
+    void saveSystemPromptToCache(const QString& tenantId, const QString& prompt);
+    QString getSystemPromptFromCache(const QString& tenantId) const;
+    void fetchSystemPromptFromServer(const QString& tenantId);
+    void setSystemPrompt(const QString& prompt);
+    void enterEditMode();
+    void exitEditMode();
     
     // 布局
     QVBoxLayout* mainLayout;
@@ -156,7 +181,8 @@ private:
     QPushButton* editPromptBtn;  // 编辑提示词按钮
     bool isEditingPrompt;        // 是否正在编辑提示词
     QString savedInputContent;   // 保存的输入框内容
-
+    QString currentTenantId;     // 当前租户ID
+    QString currentSystemPrompt; // 当前系统提示词
 };
 
 #endif // RIGHTPANEL_H

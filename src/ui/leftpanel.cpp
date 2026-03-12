@@ -541,6 +541,9 @@ void LeftPanel::onTenantSelected(const TenantInfo& tenant) {
     currentPageNum = 1;
     hasMoreChats = true;
     loadChatHistory(1, false);
+    
+    // 发射租户切换信号
+    emit tenantChanged(tenant.id);
 }
 
 void LeftPanel::loadChatHistory(int pageNum, bool append) {

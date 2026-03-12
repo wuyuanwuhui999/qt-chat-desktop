@@ -53,6 +53,12 @@ RightPanel::RightPanel(QWidget *parent)
     
     // 初始化时消息区域隐藏
     messageScrollArea->hide();
+    
+    // 获取当前租户ID
+    currentTenantId = TokenManager::instance().getValue(Constants::CURRENT_TENANT_ID_KEY).toString();
+    if (!currentTenantId.isEmpty()) {
+        loadSystemPrompt(currentTenantId);
+    }
 }
 
 void RightPanel::setupUI() {
@@ -63,6 +69,20 @@ void RightPanel::setupUI() {
                                    Dimens::PAGE_PADDING * 2);
     mainLayout->setSpacing(Dimens::PAGE_PADDING * 2);
     
+    // 创建各个UI组件
+    setupMessageArea();
+    setupLogoArea();
+    setupInputArea();
+    
+    // 创建底部容器
+    QWidget* bottomContainer = createBottomContainer();
+    
+    // 添加到主布局
+    mainLayout->addWidget(messageScrollArea, 1);  // 消息区域占满剩余空间
+    mainLayout->addWidget(bottomContainer, 1);    // 底部容器也设置拉伸因子，与消息区域平分空间
+}
+
+void RightPanel::setupMessageArea() {
     // ========== 消息显示区域 ==========
     messageScrollArea = new QScrollArea(this);
     messageScrollArea->setWidgetResizable(true);
@@ -96,7 +116,9 @@ void RightPanel::setupUI() {
     messageLayout->addStretch();  // 添加弹簧，使消息从底部开始
     
     messageScrollArea->setWidget(messageContainer);
-    
+}
+
+void RightPanel::setupLogoArea() {
     // ========== Logo和欢迎语区域（初始显示，背景透明）==========
     logoContainer = new QWidget(this);
     logoContainer->setStyleSheet("background-color: transparent;");
@@ -140,7 +162,9 @@ void RightPanel::setupUI() {
     logoContainerLayout->addStretch();
     logoContainerLayout->addLayout(logoLayout);
     logoContainerLayout->addStretch();
-    
+}
+
+void RightPanel::setupInputArea() {
     // ========== 输入框容器（固定在底部）==========
     inputContainer = new QWidget(this);
     inputContainer->setFixedWidth(900);
@@ -161,13 +185,24 @@ void RightPanel::setupUI() {
                                         Dimens::PAGE_PADDING);
     containerLayout->setSpacing(Dimens::PAGE_PADDING);
     
-    // 获取系统提示词作为placeholder
-    QString systemPrompt = TokenManager::instance().getValue("system_prompt", 
-        "你好，我是智能助手小吴同学，请问有什么可以帮助您？").toString();
+    // 创建输入框
+    setupInputEdit();
     
-    // 输入框
+    // 创建顶部按钮区域
+    QWidget* topButtonContainer = createTopButtonArea();
+    
+    // 创建底部按钮区域
+    setupButtonArea();
+    
+    containerLayout->addWidget(topButtonContainer);
+    containerLayout->addWidget(inputEdit);
+    containerLayout->addWidget(buttonContainer);
+}
+
+void RightPanel::setupInputEdit() {
+    // 输入框 - placeholder改为默认文本
     inputEdit = new QTextEdit(inputContainer);
-    inputEdit->setPlaceholderText(systemPrompt);
+    inputEdit->setPlaceholderText("给chat发送消息");
     inputEdit->setFrameStyle(QFrame::NoFrame);
     inputEdit->setMinimumHeight(Dimens::INPUT_HEIGHT);
     inputEdit->setMaximumHeight(Dimens::INPUT_MAX_HEIGHT);
@@ -206,7 +241,9 @@ void RightPanel::setupUI() {
      .arg(Colors::GRAY_COLOR.name())
      .arg(Colors::GRAY_COLOR.name())
      .arg(Colors::PRIMARY_COLOR.name()));
-    
+}
+
+QWidget* RightPanel::createTopButtonArea() {
     // ========== 顶部按钮区域 ==========
     QWidget* topButtonContainer = new QWidget(inputContainer);
     topButtonContainer->setStyleSheet("background-color: transparent; border: none;");
@@ -215,8 +252,46 @@ void RightPanel::setupUI() {
     topButtonLayout->setContentsMargins(0, 0, 0, 0);
     topButtonLayout->setSpacing(Dimens::PAGE_PADDING);
     
+    // 创建模型选择区域
+    setupModelSelection();
+    
+    // 语言切换按钮
+    languageBtn = new QPushButton("中文", topButtonContainer);
+    languageBtn->setCursor(Qt::PointingHandCursor);
+    languageBtn->setFixedHeight(Dimens::BTN_HEIGHT);
+    languageBtn->setLayoutDirection(Qt::RightToLeft);
+    languageBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "   background-color: transparent;"
+        "   color: %1;"
+        "   border: none;"
+        "   font-size: %2px;"
+        "   padding: 0 %3px;"
+        "   text-align: right;"
+        "}"
+    ).arg(Colors::TEXT_COLOR.name())
+     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Dimens::PAGE_PADDING));
+    
+    QPixmap switchPixmap(":/images/icon_switch.png");
+    if (!switchPixmap.isNull()) {
+        languageBtn->setIcon(QIcon(switchPixmap));
+        languageBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
+    } else {
+        qDebug() << "Switch icon not found, using text fallback";
+        languageBtn->setText("中文 🔄");
+    }
+    
+    topButtonLayout->addWidget(modelContainer);
+    topButtonLayout->addStretch();
+    topButtonLayout->addWidget(languageBtn);
+    
+    return topButtonContainer;
+}
+
+void RightPanel::setupModelSelection() {
     // 模型选择容器
-    modelContainer = new QWidget(topButtonContainer);
+    modelContainer = new QWidget(inputContainer);
     modelContainer->setCursor(Qt::PointingHandCursor);
     modelContainer->setStyleSheet("background-color: transparent; border: none;");
     
@@ -276,37 +351,9 @@ void RightPanel::setupUI() {
     
     connect(modelNameBtn, &QPushButton::clicked, this, &RightPanel::onModelMenuClicked);
     connect(modelArrowBtn, &QPushButton::clicked, this, &RightPanel::onModelMenuClicked);
-    
-    languageBtn = new QPushButton("中文", topButtonContainer);
-    languageBtn->setCursor(Qt::PointingHandCursor);
-    languageBtn->setFixedHeight(Dimens::BTN_HEIGHT);
-    languageBtn->setLayoutDirection(Qt::RightToLeft);
-    languageBtn->setStyleSheet(QString(
-        "QPushButton {"
-        "   background-color: transparent;"
-        "   color: %1;"
-        "   border: none;"
-        "   font-size: %2px;"
-        "   padding: 0 %3px;"
-        "   text-align: right;"
-        "}"
-    ).arg(Colors::TEXT_COLOR.name())
-     .arg(Dimens::FONT_SIZE_NORMAL)
-     .arg(Dimens::PAGE_PADDING));
-    
-    QPixmap switchPixmap(":/images/icon_switch.png");
-    if (!switchPixmap.isNull()) {
-        languageBtn->setIcon(QIcon(switchPixmap));
-        languageBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
-    } else {
-        qDebug() << "Switch icon not found, using text fallback";
-        languageBtn->setText("中文 🔄");
-    }
-    
-    topButtonLayout->addWidget(modelContainer);
-    topButtonLayout->addStretch();
-    topButtonLayout->addWidget(languageBtn);
-    
+}
+
+void RightPanel::setupButtonArea() {
     // ========== 底部按钮区域 ==========
     buttonContainer = new QWidget(inputContainer);
     buttonContainer->setStyleSheet("background-color: transparent; border: none;");
@@ -315,6 +362,23 @@ void RightPanel::setupUI() {
     buttonLayout->setContentsMargins(0, 0, 0, 0);
     buttonLayout->setSpacing(Dimens::PAGE_PADDING);
     
+    // 创建各个功能按钮
+    createFunctionButtons();
+    
+    // 创建编辑和发送按钮
+    createActionButtons();
+    
+    buttonLayout->addWidget(deepThinkBtn);
+    buttonLayout->addWidget(searchDocBtn);
+    buttonLayout->addWidget(docSelectionBtn);
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(editPromptBtn);
+    buttonLayout->addSpacing(Dimens::PAGE_PADDING);
+    buttonLayout->addWidget(sendButton);
+}
+
+void RightPanel::createFunctionButtons() {
+    // 深度思考按钮
     deepThinkBtn = new QPushButton("深度思考", buttonContainer);
     deepThinkBtn->setCursor(Qt::PointingHandCursor);
     deepThinkBtn->setFixedHeight(Dimens::BTN_HEIGHT);
@@ -341,6 +405,7 @@ void RightPanel::setupUI() {
      .arg(Dimens::PAGE_PADDING)
      .arg(Colors::PRIMARY_COLOR.name()));
     
+    // 查询文档按钮
     searchDocBtn = new QPushButton("查询文档", buttonContainer);
     searchDocBtn->setCursor(Qt::PointingHandCursor);
     searchDocBtn->setFixedHeight(Dimens::BTN_HEIGHT);
@@ -367,6 +432,7 @@ void RightPanel::setupUI() {
      .arg(Dimens::PAGE_PADDING)
      .arg(Colors::PRIMARY_COLOR.name()));
     
+    // 选择文档按钮
     docSelectionBtn = new QPushButton("选择文档", buttonContainer);
     docSelectionBtn->setCursor(Qt::PointingHandCursor);
     docSelectionBtn->setFixedHeight(Dimens::BTN_HEIGHT);
@@ -394,23 +460,29 @@ void RightPanel::setupUI() {
      .arg(Dimens::PAGE_PADDING)
      .arg(Colors::PRIMARY_COLOR.name()));
     
+    connect(deepThinkBtn, &QPushButton::toggled, this, &RightPanel::onDeepThinkToggled);
+    connect(searchDocBtn, &QPushButton::toggled, this, &RightPanel::onSearchDocToggled);
+    connect(docSelectionBtn, &QPushButton::toggled, this, &RightPanel::onDocSelectionToggled);
+}
+
+void RightPanel::createActionButtons() {
     // 编辑提示词按钮
     editPromptBtn = new QPushButton(buttonContainer);
     editPromptBtn->setCursor(Qt::PointingHandCursor);
     editPromptBtn->setFixedSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE);
     
     // 设置初始图标为 icon_edit.png (带50%透明度)
-        QPixmap editPixmap(":/images/icon_edit.png");
+    QPixmap editPixmap(":/images/icon_edit.png");
     if (!editPixmap.isNull()) {
         QPixmap transparentPixmap(editPixmap.size());
         transparentPixmap.fill(Qt::transparent);
         QPainter painter(&transparentPixmap);
-        painter.setOpacity(0.5); // 50% 透明度
+        painter.setOpacity(0.5);
         painter.drawPixmap(0, 0, editPixmap);
         editPromptBtn->setIcon(QIcon(transparentPixmap));
         editPromptBtn->setIconSize(QSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE));
     } else {
-        editPromptBtn->setText("✏️"); //  fallback
+        editPromptBtn->setText("✏️");
     }
 
     editPromptBtn->setStyleSheet(QString(
@@ -423,10 +495,11 @@ void RightPanel::setupUI() {
         "}"
     ));
     
+    // 发送按钮
     sendButton = new QPushButton(buttonContainer);
     sendButton->setCursor(Qt::PointingHandCursor);
     sendButton->setFixedSize(Dimens::BTN_HEIGHT, Dimens::BTN_HEIGHT);
-    sendButton->setEnabled(false);  // 初始时输入框为空，按钮不可用
+    sendButton->setEnabled(false);
     updateSendButtonStyle(false);
     
     QPixmap sendPixmap(":/images/icon_send.png");
@@ -452,31 +525,11 @@ void RightPanel::setupUI() {
          .arg(Colors::PRIMARY_COLOR.name()));
     }
     
-    connect(deepThinkBtn, &QPushButton::toggled, this, &RightPanel::onDeepThinkToggled);
-    connect(languageBtn, &QPushButton::clicked, this, &RightPanel::onLanguageToggle);
-    connect(searchDocBtn, &QPushButton::toggled, this, &RightPanel::onSearchDocToggled);
-    connect(docSelectionBtn, &QPushButton::toggled, this, &RightPanel::onDocSelectionToggled);
     connect(editPromptBtn, &QPushButton::clicked, this, &RightPanel::onEditPromptClicked);
     connect(sendButton, &QPushButton::clicked, this, &RightPanel::onSendClicked);
-    
-    buttonLayout->addWidget(deepThinkBtn);
-    buttonLayout->addWidget(searchDocBtn);
-    buttonLayout->addWidget(docSelectionBtn);
-    buttonLayout->addStretch();
-    buttonLayout->addWidget(editPromptBtn);
-    buttonLayout->addSpacing(Dimens::PAGE_PADDING);  // 添加间距
-    buttonLayout->addWidget(sendButton);
-    
-    containerLayout->addWidget(topButtonContainer);
-    containerLayout->addWidget(inputEdit);
-    containerLayout->addWidget(buttonContainer);
-    
-    // 创建一个水平布局来容纳居中的inputContainer
-    QHBoxLayout* centerInputLayout = new QHBoxLayout();
-    centerInputLayout->addStretch();
-    centerInputLayout->addWidget(inputContainer);
-    centerInputLayout->addStretch();
-    
+}
+
+QWidget* RightPanel::createBottomContainer() {
     // ========== 底部容器（包含logoContainer和inputContainer）==========
     QWidget* bottomContainer = new QWidget(this);
     QVBoxLayout* bottomLayout = new QVBoxLayout(bottomContainer);
@@ -489,8 +542,8 @@ void RightPanel::setupUI() {
     // logo容器
     bottomLayout->addWidget(logoContainer, 0, Qt::AlignCenter);
 
-    // 输入框容器 - 注意这里使用新的变量名
-    QHBoxLayout* inputCenterLayout = new QHBoxLayout();  // 改名为 inputCenterLayout
+    // 输入框容器居中
+    QHBoxLayout* inputCenterLayout = new QHBoxLayout();
     inputCenterLayout->addStretch();
     inputCenterLayout->addWidget(inputContainer);
     inputCenterLayout->addStretch();
@@ -498,11 +551,160 @@ void RightPanel::setupUI() {
 
     // 添加底部拉伸，与顶部拉伸配合实现垂直居中
     bottomLayout->addStretch();
+    
+    return bottomContainer;
+}
 
-    // 添加到主布局
-    mainLayout->addWidget(messageScrollArea, 1);  // 消息区域占满剩余空间
-    mainLayout->addWidget(bottomContainer, 1);    // 底部容器也设置拉伸因子，与消息区域平分空间
+// 以下为原有的其他方法，保持不变
+void RightPanel::refreshSystemPrompt(const QString& tenantId) {
+    if (tenantId.isEmpty()) return;
+    
+    currentTenantId = tenantId;
+    loadSystemPrompt(tenantId);
+}
 
+void RightPanel::loadSystemPrompt(const QString& tenantId) {
+    // 先从缓存中获取
+    QString cachedPrompt = getSystemPromptFromCache(tenantId);
+    
+    if (!cachedPrompt.isEmpty()) {
+        // 缓存中有，直接使用
+        setSystemPrompt(cachedPrompt);
+        qDebug() << "Loaded system prompt from cache for tenant:" << tenantId;
+    } else {
+        // 缓存中没有，从服务器获取
+        fetchSystemPromptFromServer(tenantId);
+    }
+}
+
+QString RightPanel::getSystemPromptCacheKey(const QString& tenantId) const {
+    return Constants::SYSTEM_PROMPT_PREFIX + tenantId;
+}
+
+void RightPanel::saveSystemPromptToCache(const QString& tenantId, const QString& prompt) {
+    TokenManager::instance().setValue(getSystemPromptCacheKey(tenantId), prompt);
+}
+
+QString RightPanel::getSystemPromptFromCache(const QString& tenantId) const {
+    return TokenManager::instance().getValue(getSystemPromptCacheKey(tenantId)).toString();
+}
+
+void RightPanel::fetchSystemPromptFromServer(const QString& tenantId) {
+    qDebug() << "Fetching system prompt from server for tenant:" << tenantId;
+    
+    QString urlString = Constants::Endpoints::GET_DEFAULT_PROMPT_BY_TENANT_ID + 
+                        "?tenantId=" + tenantId;
+    
+    NetworkManager::instance().get(
+        urlString,
+        [this, tenantId](const ApiResponse& response) {
+            if (response.isSuccess() && !response.data.isNull()) {
+                // 解析返回的JSON对象
+                QJsonObject dataObj = response.data.toJsonObject();
+                QString prompt = dataObj["prompt"].toString();
+                
+                if (!prompt.isEmpty()) {
+                    // 保存到缓存并设置
+                    saveSystemPromptToCache(tenantId, prompt);
+                    setSystemPrompt(prompt);
+                    qDebug() << "Fetched system prompt from server for tenant:" << tenantId;
+                } else {
+                    // 返回的prompt为空，使用默认提示词
+                    setSystemPrompt(Constants::DEFAULT_SYSTEM_PROMPT);
+                    saveSystemPromptToCache(tenantId, Constants::DEFAULT_SYSTEM_PROMPT);
+                    qDebug() << "Server returned empty prompt, using default for tenant:" << tenantId;
+                }
+            } else {
+                // 请求失败或data为null，使用默认提示词
+                qDebug() << "Failed to fetch system prompt from server, using default for tenant:" << tenantId;
+                setSystemPrompt(Constants::DEFAULT_SYSTEM_PROMPT);
+                saveSystemPromptToCache(tenantId, Constants::DEFAULT_SYSTEM_PROMPT);
+            }
+        },
+        [this, tenantId](const QString& error) {
+            qDebug() << "Network error when fetching system prompt:" << error;
+            // 网络错误，使用默认提示词
+            setSystemPrompt(Constants::DEFAULT_SYSTEM_PROMPT);
+            saveSystemPromptToCache(tenantId, Constants::DEFAULT_SYSTEM_PROMPT);
+        }
+    );
+}
+
+void RightPanel::setSystemPrompt(const QString& prompt) {
+    currentSystemPrompt = prompt;
+    // 不设置到placeholder中
+}
+
+void RightPanel::enterEditMode() {
+    // 保存当前输入框内容
+    savedInputContent = inputEdit->toPlainText();
+    
+    // 在输入框中显示系统提示词
+    inputEdit->setPlainText(currentSystemPrompt);
+    
+    // 不添加边框，保持无边框样式
+    // 移除添加边框的代码
+    
+    // 切换图标为退出编辑模式
+    QPixmap exitEditPixmap(":/images/icon_exit_edit.png");
+    if (!exitEditPixmap.isNull()) {
+        QPixmap transparentPixmap(exitEditPixmap.size());
+        transparentPixmap.fill(Qt::transparent);
+        QPainter painter(&transparentPixmap);
+        painter.setOpacity(0.5);
+        painter.drawPixmap(0, 0, exitEditPixmap);
+        editPromptBtn->setIcon(QIcon(transparentPixmap));
+        editPromptBtn->setIconSize(QSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE));
+    }
+    
+    isEditingPrompt = true;
+    
+    // 禁用其他按钮
+    deepThinkBtn->setEnabled(false);
+    searchDocBtn->setEnabled(false);
+    modelContainer->setEnabled(false);
+    languageBtn->setEnabled(false);
+    sendButton->setEnabled(false);
+}
+
+void RightPanel::exitEditMode() {
+    // 获取编辑后的系统提示词
+    QString newSystemPrompt = inputEdit->toPlainText().trimmed();
+    
+    if (!newSystemPrompt.isEmpty() && newSystemPrompt != currentSystemPrompt) {
+        // 更新系统提示词并保存到缓存
+        currentSystemPrompt = newSystemPrompt;
+        saveSystemPromptToCache(currentTenantId, currentSystemPrompt);
+        qDebug() << "System prompt updated and saved to cache for tenant:" << currentTenantId;
+    }
+    
+    // 恢复输入框内容
+    inputEdit->setPlainText(savedInputContent);
+    savedInputContent.clear();
+    
+    // 不需要恢复边框，因为本来就没有边框
+    // 移除恢复边框的代码
+    
+    // 切换回编辑图标
+    QPixmap editPixmap(":/images/icon_edit.png");
+    if (!editPixmap.isNull()) {
+        QPixmap transparentPixmap(editPixmap.size());
+        transparentPixmap.fill(Qt::transparent);
+        QPainter painter(&transparentPixmap);
+        painter.setOpacity(0.5);
+        painter.drawPixmap(0, 0, editPixmap);
+        editPromptBtn->setIcon(QIcon(transparentPixmap));
+        editPromptBtn->setIconSize(QSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE));
+    }
+    
+    isEditingPrompt = false;
+    
+    // 启用其他按钮
+    deepThinkBtn->setEnabled(true);
+    searchDocBtn->setEnabled(true);
+    modelContainer->setEnabled(true);
+    languageBtn->setEnabled(true);
+    sendButton->setEnabled(!inputEdit->toPlainText().trimmed().isEmpty());
 }
 
 void RightPanel::updateSendButtonStyle(bool hasText) {
@@ -583,6 +785,12 @@ void RightPanel::clearAllMessages() {
         webSocket->deleteLater();
         webSocket = nullptr;
     }
+    
+    // 重新加载当前租户的系统提示词
+    currentTenantId = TokenManager::instance().getValue(Constants::CURRENT_TENANT_ID_KEY).toString();
+    if (!currentTenantId.isEmpty()) {
+        loadSystemPrompt(currentTenantId);
+    }
 }
 
 void RightPanel::connectWebSocket() {
@@ -618,9 +826,8 @@ void RightPanel::onWebSocketConnected() {
     message["modelId"] = currentModel.id;
     message["chatId"] = currentChatId;
     
-    // 获取系统提示词
-    QString systemPrompt = inputEdit->placeholderText();
-    message["systemPrompt"] = systemPrompt;
+    // 使用当前的系统提示词
+    message["systemPrompt"] = currentSystemPrompt;
     
     message["type"] = isSearchDocSelected ? "document" : "";
     message["docIds"] = QJsonArray();  // 暂时为空数组
@@ -1102,71 +1309,12 @@ void RightPanel::onDocSelectionToggled() {
 }
 
 void RightPanel::onEditPromptClicked() {
-    // 定义一个 Lambda 表达式用于加载带透明度的图标，避免代码重复
-    auto setIconWithOpacity = [this](const QString& imagePath, double opacity) {
-        QPixmap pixmap(imagePath);
-        if (!pixmap.isNull()) {
-            QPixmap resultPixmap(pixmap.size());
-            resultPixmap.fill(Qt::transparent);
-            QPainter painter(&resultPixmap);
-            painter.setOpacity(opacity);
-            painter.drawPixmap(0, 0, pixmap);
-            editPromptBtn->setIcon(QIcon(resultPixmap));
-            editPromptBtn->setIconSize(QSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE));
-        } else {
-            // Fallback 文本
-            editPromptBtn->setText(imagePath.contains("exit") ? "❌" : "✏️");
-        }
-    };
-
     if (isEditingPrompt) {
-        // --- 退出编辑模式 ---
-        QString newSystemPrompt = inputEdit->toPlainText().trimmed();
-        if (!newSystemPrompt.isEmpty()) {
-            TokenManager::instance().setValue("system_prompt", newSystemPrompt);
-            inputEdit->setPlaceholderText(newSystemPrompt);
-        }
-        
-        inputEdit->setPlainText(savedInputContent);
-        savedInputContent.clear();
-        
-        inputEdit->setStyleSheet(inputEdit->styleSheet().replace(
-            QString("border: 1px solid %1;").arg(Colors::GRAY_COLOR.name()), 
-            "border: none;"
-        ));
-        
-        // 【修改点】切换回 icon_edit.png，并应用 50% 透明度
-        setIconWithOpacity(":/images/icon_edit.png", 0.5);
-        
-        isEditingPrompt = false;
-        
-        deepThinkBtn->setEnabled(true);
-        searchDocBtn->setEnabled(true);
-        modelContainer->setEnabled(true);
-        languageBtn->setEnabled(true);
-        sendButton->setEnabled(!inputEdit->toPlainText().trimmed().isEmpty());
-        
+        // 退出编辑模式
+        exitEditMode();
     } else {
-        // --- 进入编辑模式 ---
-        savedInputContent = inputEdit->toPlainText();
-        inputEdit->setPlainText(inputEdit->placeholderText());
-        
-        inputEdit->setStyleSheet(inputEdit->styleSheet().replace(
-            "border: 1px solid " + Colors::GRAY_COLOR.name() + ";", 
-            ""
-        ));
-        
-        // 【修改点】切换为 icon_exit_edit.png，并应用 50% 透明度
-        // 之前这里是直接加载不透明图片，现在统一改为 0.5 透明度
-        setIconWithOpacity(":/images/icon_exit_edit.png", 0.5);
-        
-        isEditingPrompt = true;
-        
-        deepThinkBtn->setEnabled(false);
-        searchDocBtn->setEnabled(false);
-        modelContainer->setEnabled(false);
-        languageBtn->setEnabled(false);
-        sendButton->setEnabled(false);
+        // 进入编辑模式
+        enterEditMode();
     }
     
     onInputTextChanged();

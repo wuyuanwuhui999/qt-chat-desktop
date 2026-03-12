@@ -15,7 +15,7 @@ namespace Dimens {
     
     // 头像尺寸
     const int SMALL_AVATAR = 30;             // 30dp
-    const int MIDDLE_AVATAR = 80;            // 40dp
+    const int MIDDLE_AVATAR = 50;            // 40dp
     const int BIG_AVATAR = 100;               // 60dp
     
     // 图标尺寸

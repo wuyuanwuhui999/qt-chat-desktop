@@ -1,19 +1,27 @@
 #include "LoginWindow.h"
-#include "theme/Colors.h"
-#include "theme/Dimens.h"
-#include "config/Constants.h"
 #include "network/NetworkManager.h"
 #include "utils/TokenManager.h"
-#include <QCryptographicHash>
-#include <QMessageBox>
-#include <QRegularExpression>
-#include <QRegularExpressionValidator>
-#include <QMovie>
-#include <QTimer>
-#include <QScreen>
-#include <QGuiApplication>
+#include "config/Constants.h"
+#include "theme/Colors.h"
+#include "theme/Dimens.h"
+#include <QJsonArray>
+#include <QScrollBar>
 #include <QPainter>
-#include <QTransform>
+#include <QPainterPath>
+#include <QMessageBox>
+#include <QDebug>
+#include <QMenu>
+#include <QCursor>
+#include <QApplication>
+#include <QScreen>
+#include <QDateTime>
+#include <QJsonDocument>
+#include <QJsonValue>
+#include <QUrl>
+#include <QUrlQuery>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 
 LoginWindow::LoginWindow(QWidget *parent) 
     : QWidget(parent), 
@@ -21,7 +29,18 @@ LoginWindow::LoginWindow(QWidget *parent)
       isSendingCode(false),
       currentTabIndex(0) {
     
-    setStyleSheet(QString("background-color: %1;").arg(Colors::PAGE_BACKGROUND_COLOR.name()));
+    // 设置渐变背景色 - 从浅橙色渐变到白色
+    setAutoFillBackground(true);
+    QPalette palette = this->palette();
+    
+    // 创建线性渐变（从上到下）
+    QLinearGradient gradient(rect().topLeft(), rect().bottomRight());
+    gradient.setColorAt(0.0, Colors::PRIMARY_COLOR.lighter(150));  // 顶部：浅橙色
+    gradient.setColorAt(0.5, Colors::PRIMARY_COLOR.lighter(180)); // 中间：更浅的橙色
+    gradient.setColorAt(1.0, Colors::WHITE_COLOR);                // 底部：白色
+    
+    palette.setBrush(QPalette::Window, QBrush(gradient));
+    setPalette(palette);
     
     setupUI();
     setupPasswordLoginPanel();
@@ -29,6 +48,28 @@ LoginWindow::LoginWindow(QWidget *parent)
     
     // 初始化显示密码登录页签
     onPasswordLoginTabClicked();
+}
+
+// 重写resizeEvent以在窗口大小改变时更新渐变
+void LoginWindow::resizeEvent(QResizeEvent* event) {
+    QWidget::resizeEvent(event);
+    
+    // 更新渐变以适应新的窗口大小
+    QLinearGradient gradient(rect().topLeft(), rect().bottomRight());
+    gradient.setColorAt(0.0, Colors::PRIMARY_COLOR.lighter(150));
+    gradient.setColorAt(0.5, Colors::PRIMARY_COLOR.lighter(180));
+    gradient.setColorAt(1.0, Colors::WHITE_COLOR);
+    
+    QPalette palette = this->palette();
+    palette.setBrush(QPalette::Window, QBrush(gradient));
+    setPalette(palette);
+    
+    // 重新居中登录框（如果需要）
+    if (loginContainer) {
+        int x = (width() - loginContainer->width()) / 2;
+        int y = (height() - loginContainer->height()) / 2;
+        // 注意：由于使用了布局，通常不需要手动设置位置
+    }
 }
 
 void LoginWindow::setupUI() {
@@ -41,23 +82,18 @@ void LoginWindow::setupUI() {
     loginContainer->setFixedWidth(400);  // 固定宽度为400
     // 不设置固定高度，让内容决定
     
-    // 设置容器样式（白色背景+圆角）
+    // 设置容器样式（白色背景+圆角+阴影效果）
     loginContainer->setStyleSheet(
         "QWidget {"
         "   background-color: white;"
         "   border-radius: 10px;"
         "}"
+        "QWidget:hover {"
+        "   background-color: white;"
+        "}"
     );
     
     QVBoxLayout* containerLayout = new QVBoxLayout(loginContainer);
-    // 设置内边距，让内容不要贴边
-    containerLayout->setContentsMargins(
-        Dimens::PAGE_PADDING * 2,    // 左右边距
-        Dimens::PAGE_PADDING * 2,    // 上边距
-        Dimens::PAGE_PADDING * 2,    // 右边距
-        Dimens::PAGE_PADDING * 2     // 下边距
-    );
-    
     // 设置控件之间的间距
     containerLayout->setSpacing(Dimens::PAGE_PADDING);
     
@@ -82,7 +118,6 @@ void LoginWindow::setupUI() {
         "   background: transparent;"
         "   border: none;"
         "   font-size: 16px;"
-        "   padding: 10px 20px;"
         "}"
     );
     
@@ -109,7 +144,6 @@ void LoginWindow::setupUI() {
         "   background: transparent;"
         "   border: none;"
         "   font-size: 16px;"
-        "   padding: 10px 20px;"
         "}"
     );
     
@@ -128,15 +162,14 @@ void LoginWindow::setupUI() {
     
     // 堆叠窗口
     stackedWidget = new QStackedWidget(loginContainer);
-    // 不设置固定高度，让内容决定
-    // stackedWidget->setFixedHeight(200);  // 注释掉这行
     
     // 创建loading标签（用于显示加载动画）
     loadingLabel = new QLabel(loginContainer);
-    loadingMovie = new QMovie(":/resources/images/loading.png", QByteArray(), this);
+    loadingMovie = new QMovie(":/images/icon_loading.gif", QByteArray(), this);
     loadingLabel->setMovie(loadingMovie);
     loadingLabel->setFixedSize(20, 20);
     loadingLabel->setVisible(false);
+    loadingLabel->setStyleSheet("background-color: transparent;");
     
     // 登录按钮
     loginButton = new QPushButton("登录", loginContainer);
@@ -200,12 +233,8 @@ void LoginWindow::setupUI() {
     containerLayout->addLayout(tabContainerLayout);
     containerLayout->addWidget(stackedWidget);
     
-    // 登录按钮和loading的布局
-    QHBoxLayout* loginBtnLayout = new QHBoxLayout();
-    loginBtnLayout->addWidget(loginButton);
-    loginBtnLayout->addWidget(loadingLabel);
-    
-    containerLayout->addLayout(loginBtnLayout);
+    // 直接添加登录按钮，不包含loading标签
+    containerLayout->addWidget(loginButton);
     containerLayout->addWidget(registerButton);
     
     QHBoxLayout* forgotLayout = new QHBoxLayout();
@@ -216,10 +245,10 @@ void LoginWindow::setupUI() {
     // 在containerLayout最后添加一个垂直弹簧，防止内容被压缩
     containerLayout->addStretch();
     
-    mainLayout->addWidget(loginContainer);
-    
-    // 在mainLayout最后添加一个垂直弹簧，确保登录框垂直居中
-    mainLayout->addStretch();
+    // 修改主布局的添加方式 - 移除两个addStretch，改为添加带伸缩因子的布局
+    mainLayout->addStretch(1);  // 上方弹簧，伸缩因子为1
+    mainLayout->addWidget(loginContainer, 0, Qt::AlignCenter);  // 登录框，不伸缩，居中对齐
+    mainLayout->addStretch(1);  // 下方弹簧，伸缩因子为1
 }
 
 void LoginWindow::setupPasswordLoginPanel() {
@@ -346,7 +375,7 @@ void LoginWindow::setupEmailLoginPanel() {
     stackedWidget->addWidget(emailLoginPanel);
     
     // 初始化发送按钮加载动画
-    sendButtonLoadingMovie = new QMovie(":/resources/images/loading.png", QByteArray(), this);
+    sendButtonLoadingMovie = new QMovie(":/images/loading.gif", QByteArray(), this);
     connect(sendButtonLoadingMovie, &QMovie::frameChanged, [this](int frame) {
         if (isSendingCode) {
             QPixmap pixmap = sendButtonLoadingMovie->currentPixmap();
@@ -557,15 +586,78 @@ void LoginWindow::setLoading(bool loading) {
     isLoading = loading;
     
     if (loading) {
-        loginButton->setText("");
-        loginButton->setEnabled(false);
+        // 加载状态：隐藏文字，显示加载动画
+        loginButton->setText("");  // 清空文字
+        
+        // 创建水平布局来容纳动画
+        QHBoxLayout* layout = qobject_cast<QHBoxLayout*>(loginButton->layout());
+        if (!layout) {
+            // 如果按钮还没有布局，创建一个
+            layout = new QHBoxLayout(loginButton);
+            layout->setContentsMargins(0, 0, 0, 0);
+            layout->setAlignment(Qt::AlignCenter);
+        }
+        
+        // 清空现有布局
+        QLayoutItem* item;
+        while ((item = layout->takeAt(0)) != nullptr) {
+            delete item->widget();
+            delete item;
+        }
+        
+        // 将loading标签移到按钮内
+        loadingLabel->setParent(loginButton);
         loadingLabel->setVisible(true);
         loadingMovie->start();
+        
+        // 将loading标签添加到按钮布局中并居中
+        layout->addWidget(loadingLabel, 0, Qt::AlignCenter);
+        
+        // 设置按钮样式（保持原有样式，但确保有足够的padding来容纳动画）
+        loginButton->setStyleSheet(
+            "QPushButton {"
+            "   background-color: " + Colors::PRIMARY_COLOR.name() + ";"
+            "   color: white;"
+            "   border: none;"
+            "   border-radius: " + QString::number(Dimens::BTN_HEIGHT / 2) + "px;"
+            "   font-size: 16px;"
+            "}"
+            "QPushButton:hover {"
+            "   background-color: " + Colors::PRIMARY_COLOR.lighter(110).name() + ";"
+            "}"
+        );
+        
+        loginButton->setEnabled(false);
     } else {
-        loginButton->setText("登录");
-        loginButton->setEnabled(true);
+        // 非加载状态：显示文字，隐藏加载动画
+        
+        // 将loading标签移回原来的父控件（loginContainer）
+        loadingLabel->setParent(loginContainer);
         loadingLabel->setVisible(false);
         loadingMovie->stop();
+        
+        // 恢复按钮文字
+        loginButton->setText("登录");
+        
+        // 清空按钮内的布局
+        QLayout* layout = loginButton->layout();
+        if (layout) {
+            QLayoutItem* item;
+            while ((item = layout->takeAt(0)) != nullptr) {
+                delete item->widget();
+                delete item;
+            }
+            delete layout;
+        }
+        
+        // 根据输入状态设置按钮样式
+        if (stackedWidget->currentIndex() == 0) {
+            onUsernamePasswordChanged();
+        } else {
+            onCodeChanged(codeEdit->text());
+        }
+        
+        loginButton->setEnabled(true);
     }
 }
 

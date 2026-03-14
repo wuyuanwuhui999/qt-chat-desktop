@@ -1,10 +1,10 @@
 // Constants.h (需要添加的部分)
 namespace Constants {
     // API 基础URL
-    const QString BASE_URL = "http://192.168.73.8:3000";
+    const QString BASE_URL = "http://192.168.73.154:3000";
     
     // WebSocket 聊天URL
-    const QString WEBSOCKET_CHAT_URL = "ws://192.168.73.8:3000/service/chat/ws/chat?token=Bearer %1";
+    const QString WEBSOCKET_CHAT_URL = "ws://192.168.73.154:3000/service/chat/ws/chat?token=Bearer %1";
 
     // 缓存键
     const QString TOKEN_KEY = "jwt_token";

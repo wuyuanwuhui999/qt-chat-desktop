@@ -10,6 +10,7 @@
 #include <QStackedWidget>
 #include <QPropertyAnimation>
 #include <QMovie>
+#include <QTimer>  // 添加QTimer头文件
 
 class LoginWindow : public QWidget {
     Q_OBJECT
@@ -19,6 +20,10 @@ public:
 
 signals:
     void loginSuccess();
+
+protected:
+    // 添加resizeEvent的声明
+    void resizeEvent(QResizeEvent* event) override;
 
 private slots:
     void onPasswordLoginTabClicked();

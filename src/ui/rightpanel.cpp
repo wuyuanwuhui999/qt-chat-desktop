@@ -864,44 +864,47 @@ void RightPanel::addUserMessage(const QString& content) {
     QWidget* messageWidget = new QWidget(messageContainer);
     messageWidget->setObjectName(QString("user_msg_%1").arg(++currentMessageId));
     
+    // 创建水平布局
     QHBoxLayout* layout = new QHBoxLayout(messageWidget);
     layout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING,
                                Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
     layout->setSpacing(Dimens::PAGE_PADDING);
-    
+    // 【修改点1】设置布局整体顶部对齐，确保头像和消息内容顶部对齐
+    layout->setAlignment(Qt::AlignTop); 
+
     // 用户头像
     QLabel* avatarLabel = new QLabel(messageWidget);
     avatarLabel->setFixedSize(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
+    // 防止头像被拉伸变形
+    avatarLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed); 
     
     User currentUser = TokenManager::instance().getUser();
     if (!currentUser.avatar.isEmpty()) {
         // 加载头像的逻辑可以复用LeftPanel中的代码
-    } else {
-        QPixmap pixmap(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
-        pixmap.fill(Qt::transparent);
-        
-        QPainter painter(&pixmap);
-        painter.setRenderHint(QPainter::Antialiasing);
-        
-        QPainterPath path;
-        path.addEllipse(0, 0, Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
-        painter.fillPath(path, Colors::PRIMARY_COLOR);
-        
-        painter.setPen(Qt::white);
-        QFont font;
-        font.setPixelSize(Dimens::SMALL_AVATAR * 0.5);
-        painter.setFont(font);
-        
-        QString initial = currentUser.username.left(1).toUpper();
-        if (initial.isEmpty()) initial = "U";
-        painter.drawText(pixmap.rect(), Qt::AlignCenter, initial);
-        
-        avatarLabel->setPixmap(pixmap);
-    }
+        // 此处省略具体加载网络图片代码，保持原逻辑或参考LeftPanel::loadAvatar
+        // 如果有网络加载逻辑，请确保加载完成后调用 setPixmap
+    } 
     
+    // 生成默认头像逻辑 (保持原有逻辑)
+    QPixmap pixmap(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
+    pixmap.fill(Qt::transparent);
+    QPainter painter(&pixmap);
+    painter.setRenderHint(QPainter::Antialiasing);
+    QPainterPath path;
+    path.addEllipse(0, 0, Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
+    painter.fillPath(path, Colors::PRIMARY_COLOR);
+    painter.setPen(Qt::white);
+    QFont font;
+    font.setPixelSize(Dimens::SMALL_AVATAR * 0.5);
+    painter.setFont(font);
+    QString initial = currentUser.username.left(1).toUpper();
+    if (initial.isEmpty()) initial = "U";
+    painter.drawText(pixmap.rect(), Qt::AlignCenter, initial);
+    avatarLabel->setPixmap(pixmap);
+
     // 消息内容
     QLabel* contentLabel = new QLabel(content, messageWidget);
-    contentLabel->setWordWrap(true);
+    contentLabel->setWordWrap(true); // 允许自动换行
     contentLabel->setStyleSheet(QString(
         "color: %1;"
         "font-size: %2px;"
@@ -913,15 +916,29 @@ void RightPanel::addUserMessage(const QString& content) {
      .arg(Colors::WHITE_COLOR.name())
      .arg(Dimens::SMALL_MARGIN)
      .arg(Dimens::PAGE_PADDING));
-    contentLabel->setMaximumWidth(600);
     
+    // 【修改点2】移除固定的最大宽度限制，或者设置为一个极大值
+    // 原代码: contentLabel->setMaximumWidth(600); 
+    // 修改后: 不设置最大宽度，或者设置为 16777215 (QWIDGETSIZE_MAX)
+    contentLabel->setMaximumWidth(QWIDGETSIZE_MAX); 
+    
+    // 设置尺寸策略，允许水平扩展
+    contentLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+
+    // 添加头像到布局 (固定大小)
     layout->addWidget(avatarLabel);
-    layout->addWidget(contentLabel);
-    layout->addStretch();
     
+    // 【修改点3】添加消息内容到布局，并设置拉伸因子为1
+    // 这样 contentLabel 会占据除了头像和间距之外的所有剩余空间
+    layout->addWidget(contentLabel, 1); 
+    
+    // 原有的 stretch 可以保留，也可以去掉，因为 contentLabel 已经设置了 stretch factor 为 1
+    // 如果保留，它会推挤右侧可能存在的其他控件，这里为了保险起见保留，或者只依靠上面的 stretch
+    // layout->addStretch(); 
+
     // 插入到弹簧之前
     messageLayout->insertWidget(messageLayout->count() - 1, messageWidget);
-    
+
     // 滚动到底部
     QTimer::singleShot(100, this, [this]() {
         messageScrollArea->verticalScrollBar()->setValue(
@@ -936,43 +953,44 @@ void RightPanel::addAssistantMessage() {
     block.isThinking = false;
     block.thinkContent.clear();
     block.responseContent.clear();
-    
+
     QWidget* messageWidget = new QWidget(messageContainer);
     messageWidget->setObjectName(QString("assistant_msg_%1").arg(block.id));
-    
+
     QHBoxLayout* layout = new QHBoxLayout(messageWidget);
     layout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING,
                                Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
     layout->setSpacing(Dimens::PAGE_PADDING);
     
+    // 【修改点1】设置布局整体顶部对齐，确保头像和消息内容顶部对齐
+    layout->setAlignment(Qt::AlignTop); 
+
     // 助手头像
     QLabel* avatarLabel = new QLabel(messageWidget);
     avatarLabel->setFixedSize(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
-    
+    // 【修改点2】防止头像被拉伸变形
+    avatarLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+
     QPixmap pixmap(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
     pixmap.fill(Qt::transparent);
-    
     QPainter painter(&pixmap);
     painter.setRenderHint(QPainter::Antialiasing);
-    
     QPainterPath path;
     path.addEllipse(0, 0, Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
     painter.fillPath(path, Colors::GRAY_COLOR);
-    
     painter.setPen(Qt::white);
     QFont font;
     font.setPixelSize(Dimens::SMALL_AVATAR * 0.5);
     painter.setFont(font);
     painter.drawText(pixmap.rect(), Qt::AlignCenter, "AI");
-    
     avatarLabel->setPixmap(pixmap);
-    
+
     // 消息内容容器
     QWidget* contentWidget = new QWidget(messageWidget);
     QVBoxLayout* contentLayout = new QVBoxLayout(contentWidget);
     contentLayout->setContentsMargins(0, 0, 0, 0);
     contentLayout->setSpacing(Dimens::SMALL_MARGIN);
-    
+
     // 思考内容标签
     QLabel* thinkLabel = new QLabel(contentWidget);
     thinkLabel->setWordWrap(true);
@@ -987,9 +1005,12 @@ void RightPanel::addAssistantMessage() {
      .arg(Colors::WHITE_COLOR.name())
      .arg(Dimens::SMALL_MARGIN)
      .arg(Dimens::PAGE_PADDING));
-    thinkLabel->setMaximumWidth(600);
-    thinkLabel->hide();
     
+    // 【修改点3】移除最大宽度限制，允许占满剩余空间
+    // thinkLabel->setMaximumWidth(600); 
+    thinkLabel->setMaximumWidth(QWIDGETSIZE_MAX); 
+    thinkLabel->hide();
+
     // 响应内容标签
     QLabel* responseLabel = new QLabel(contentWidget);
     responseLabel->setWordWrap(true);
@@ -1004,23 +1025,30 @@ void RightPanel::addAssistantMessage() {
      .arg(Colors::WHITE_COLOR.name())
      .arg(Dimens::SMALL_MARGIN)
      .arg(Dimens::PAGE_PADDING));
-    responseLabel->setMaximumWidth(600);
     
+    // 【修改点4】移除最大宽度限制，允许占满剩余空间
+    // responseLabel->setMaximumWidth(600);
+    responseLabel->setMaximumWidth(QWIDGETSIZE_MAX);
+
     contentLayout->addWidget(thinkLabel);
     contentLayout->addWidget(responseLabel);
-    
+
+    // 添加头像到布局
     layout->addWidget(avatarLabel);
-    layout->addWidget(contentWidget);
-    layout->addStretch();
+    
+    // 【修改点5】添加内容容器到布局，并设置拉伸因子为1
+    // 这样 contentWidget 会占据除了头像和间距之外的所有剩余空间
+    layout->addWidget(contentWidget, 1); 
+    
+    // 原有的 stretch 可以省略，因为 contentWidget 已经设置了 stretch factor
     
     messageLayout->insertWidget(messageLayout->count() - 1, messageWidget);
-    
+
     block.thinkLabel = thinkLabel;
     block.responseLabel = responseLabel;
     block.widget = messageWidget;
-    
     currentMessageBlock = block;
-    
+
     // 滚动到底部
     QTimer::singleShot(100, this, [this]() {
         messageScrollArea->verticalScrollBar()->setValue(

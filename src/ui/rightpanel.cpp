@@ -1,4 +1,3 @@
-// RightPanel.cpp
 #include "RightPanel.h"
 #include "network/NetworkManager.h"
 #include "utils/TokenManager.h"

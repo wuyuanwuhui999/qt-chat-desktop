@@ -2,6 +2,7 @@
 #include "network/NetworkManager.h"
 #include "utils/TokenManager.h"
 #include "config/Constants.h"
+#include "ui/LeftPanel.h"
 #include <QDebug>
 #include <QScrollBar>
 #include <QPainter>
@@ -1455,6 +1456,126 @@ void RightPanel::updateButtonsStyle() {
          .arg(Dimens::FONT_SIZE_NORMAL)
          .arg(Dimens::PAGE_PADDING));
     }
+}
+
+// 在 RightPanel.cpp 中添加
+void RightPanel::loadChatHistory(const ChatHistory& chat) {
+    qDebug() << "Loading chat history:" << chat.id << chat.prompt;
+    
+    // 清空当前消息
+    clearAllMessages();
+    
+    // 显示消息区域，隐藏logo
+    messageScrollArea->show();
+    logoContainer->hide();
+    
+    // 设置当前 chatId
+    currentChatId = chat.chatId;  // 使用历史对话的 chatId
+    qDebug() << "Set current chat ID to:" << currentChatId;
+    
+    // 添加用户消息（prompt）
+    if (!chat.prompt.isEmpty()) {
+        addUserMessage(chat.prompt);
+    }
+    
+    // 添加助手消息（如果有思考内容和响应内容）
+    if (!chat.thinkContent.isEmpty() || !chat.responseContent.isEmpty()) {
+        // 创建新的消息块
+        MessageBlock block;
+        block.id = ++currentMessageId;
+        block.isThinking = false;
+        block.thinkContent = chat.thinkContent;
+        block.responseContent = chat.responseContent;
+        
+        QWidget* messageWidget = new QWidget(messageContainer);
+        messageWidget->setObjectName(QString("assistant_msg_%1").arg(block.id));
+
+        QHBoxLayout* layout = new QHBoxLayout(messageWidget);
+        layout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING,
+                                   Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
+        layout->setSpacing(Dimens::PAGE_PADDING);
+        layout->setAlignment(Qt::AlignTop);
+
+        // 助手头像
+        QLabel* avatarLabel = new QLabel(messageWidget);
+        avatarLabel->setFixedSize(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
+        avatarLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+
+        QPixmap pixmap(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
+        pixmap.fill(Qt::transparent);
+        QPainter painter(&pixmap);
+        painter.setRenderHint(QPainter::Antialiasing);
+        QPainterPath path;
+        path.addEllipse(0, 0, Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
+        painter.fillPath(path, Colors::GRAY_COLOR);
+        painter.setPen(Qt::white);
+        QFont font;
+        font.setPixelSize(Dimens::SMALL_AVATAR * 0.5);
+        painter.setFont(font);
+        painter.drawText(pixmap.rect(), Qt::AlignCenter, "AI");
+        avatarLabel->setPixmap(pixmap);
+
+        // 消息内容容器
+        QWidget* contentWidget = new QWidget(messageWidget);
+        QVBoxLayout* contentLayout = new QVBoxLayout(contentWidget);
+        contentLayout->setContentsMargins(0, 0, 0, 0);
+        contentLayout->setSpacing(Dimens::SMALL_MARGIN);
+
+        // 思考内容标签
+        QLabel* thinkLabel = new QLabel(contentWidget);
+        thinkLabel->setWordWrap(true);
+        thinkLabel->setStyleSheet(QString(
+            "color: %1;"
+            "font-size: %2px;"
+            "background-color: %3;"
+            "border-radius: %4px;"
+            "padding: %5px;"
+        ).arg(Colors::GRAY_COLOR.name())
+         .arg(Dimens::FONT_SIZE_NORMAL)
+         .arg(Colors::WHITE_COLOR.name())
+         .arg(Dimens::SMALL_MARGIN)
+         .arg(Dimens::PAGE_PADDING));
+        thinkLabel->setMaximumWidth(QWIDGETSIZE_MAX);
+        
+        if (!chat.thinkContent.isEmpty()) {
+            thinkLabel->setText(chat.thinkContent);
+            thinkLabel->show();
+        } else {
+            thinkLabel->hide();
+        }
+
+        // 响应内容标签
+        QLabel* responseLabel = new QLabel(contentWidget);
+        responseLabel->setWordWrap(true);
+        responseLabel->setStyleSheet(QString(
+            "color: %1;"
+            "font-size: %2px;"
+            "background-color: %3;"
+            "border-radius: %4px;"
+            "padding: %5px;"
+        ).arg(Colors::TEXT_COLOR.name())
+         .arg(Dimens::FONT_SIZE_NORMAL)
+         .arg(Colors::WHITE_COLOR.name())
+         .arg(Dimens::SMALL_MARGIN)
+         .arg(Dimens::PAGE_PADDING));
+        responseLabel->setMaximumWidth(QWIDGETSIZE_MAX);
+        responseLabel->setText(chat.responseContent);
+
+        contentLayout->addWidget(thinkLabel);
+        contentLayout->addWidget(responseLabel);
+
+        layout->addWidget(avatarLabel);
+        layout->addWidget(contentWidget, 1);
+
+        messageLayout->insertWidget(messageLayout->count() - 1, messageWidget);
+    }
+    
+    // 滚动到底部
+    QTimer::singleShot(100, this, [this]() {
+        messageScrollArea->verticalScrollBar()->setValue(
+            messageScrollArea->verticalScrollBar()->maximum()
+        );
+    });
 }
 
 RightPanel::~RightPanel() {

@@ -1,3 +1,4 @@
+// LoginWindow.h
 #ifndef LOGINWINDOW_H
 #define LOGINWINDOW_H
 
@@ -30,12 +31,33 @@ private slots:
     void onEmailLoginTabClicked();
     void onLoginClicked();
     void onSendCodeClicked();
-    void onUsernamePasswordChanged();
+    void onUsernamePasswordChanged();  // 确保这里声明了
     void onEmailChanged(const QString& email);
     void onCodeChanged(const QString& code);
 
 private:
     void setupUI();
+    QVBoxLayout* createCenterLayout();
+    QLabel* createLogoLabel();
+    QWidget* createLoginContainer();
+    QHBoxLayout* createTabLayout();
+    QWidget* createPasswordTabContainer();
+    QWidget* createEmailTabContainer();
+    QStackedWidget* createStackedWidget();
+    QWidget* createPasswordLoginPanel();
+    QWidget* createEmailLoginPanel();
+    QWidget* createEmailInputContainer();
+    QString createInputStyle();
+    QString createEmailInputStyle();
+    QString createSendButtonStyle();
+    QPushButton* createLoginButton();
+    QString createDisabledLoginButtonStyle();
+    QPushButton* createRegisterButton();
+    QString createRegisterButtonStyle();
+    QHBoxLayout* createForgotPasswordLayout();
+    void createLoadingLabel();
+    void createSendButtonLoading();
+
     void setupPasswordLoginPanel();
     void setupEmailLoginPanel();
     void updateTabIndicator(int index);

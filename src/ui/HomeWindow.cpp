@@ -4,6 +4,7 @@
 #include "utils/TokenManager.h"
 #include "theme/Colors.h"
 
+// 在 HomeWindow 的构造函数中添加
 HomeWindow::HomeWindow(QWidget *parent)
     : QMainWindow(parent) {
     
@@ -18,8 +19,10 @@ HomeWindow::HomeWindow(QWidget *parent)
     connect(leftPanel, &LeftPanel::newChatClicked, rightPanel, &RightPanel::clearAllMessages);
     
     // 连接左侧面板的租户切换信号到右侧面板的刷新系统提示词方法
-    // 需要在 LeftPanel 中添加 tenantChanged 信号
     connect(leftPanel, &LeftPanel::tenantChanged, rightPanel, &RightPanel::refreshSystemPrompt);
+    
+    // 【新增】连接左侧面板的聊天选中信号到右侧面板的加载历史对话方法
+    connect(leftPanel, &LeftPanel::chatSelected, rightPanel, &RightPanel::loadChatHistory);
     
     // 创建水平分割器
     splitter = new QSplitter(Qt::Horizontal, this);

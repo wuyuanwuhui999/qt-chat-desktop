@@ -805,19 +805,19 @@ void LeftPanel::refreshData() {
 
 bool LeftPanel::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::MouseButtonPress) {
-        // 检查是否是聊天项（通过对象名判断）
         if (watched->objectName().startsWith("chat_item_")) {
             QWidget* widget = qobject_cast<QWidget*>(watched);
             if (widget) {
-                // 创建并发射信号
                 int chatId = widget->property("chat_id").toInt();
                 QString prompt = widget->property("chat_prompt").toString();
                 QString timeStr = widget->property("chat_time").toString();
                 QString modelName = widget->property("chat_model").toString();
                 QString content = widget->property("chat_content").toString();
+                QString chatIdStr = widget->property("chat_id_str").toString();  // 添加 chatId 字符串
                 
                 ChatHistory chat;
                 chat.id = chatId;
+                chat.chatId = chatIdStr;  // 设置 chatId
                 chat.prompt = prompt;
                 chat.createTime = QDateTime::fromString(timeStr, Qt::ISODate);
                 chat.modelName = modelName;

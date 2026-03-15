@@ -19,6 +19,8 @@
 #include "theme/Colors.h"
 #include "theme/Dimens.h"
 
+struct ChatHistory;
+
 // 模型信息结构体
 struct ModelInfo {
     QString id;
@@ -68,6 +70,8 @@ public:
     
     // 刷新当前租户的系统提示词
     void refreshSystemPrompt(const QString& tenantId);
+    // 在 RightPanel.h 的 public 部分添加
+    void loadChatHistory(const ChatHistory& chat);
 
 private slots:
     void onDeepThinkToggled();

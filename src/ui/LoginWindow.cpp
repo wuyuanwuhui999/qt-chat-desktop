@@ -1,3 +1,4 @@
+// LoginWindow.cpp
 #include "LoginWindow.h"
 #include "network/NetworkManager.h"
 #include "utils/TokenManager.h"
@@ -43,11 +44,16 @@ LoginWindow::LoginWindow(QWidget *parent)
     setPalette(palette);
     
     setupUI();
-    setupPasswordLoginPanel();
-    setupEmailLoginPanel();
+    // 移除重复的 setupPasswordLoginPanel 和 setupEmailLoginPanel 调用
+    // 因为这些已经在 setupUI() -> createLoginContainer() -> createStackedWidget() 中调用了
     
     // 初始化显示密码登录页签
     onPasswordLoginTabClicked();
+    
+    // 修复：初始化时检查一次输入框状态
+    QTimer::singleShot(0, this, [this]() {
+        onUsernamePasswordChanged();
+    });
 }
 
 // 重写resizeEvent以在窗口大小改变时更新渐变
@@ -72,18 +78,61 @@ void LoginWindow::resizeEvent(QResizeEvent* event) {
     }
 }
 
+// LoginWindow.cpp 中的修改部分
+
 void LoginWindow::setupUI() {
     // 主布局 - 使用弹性布局使登录框居中
     mainLayout = new QVBoxLayout(this);
-    mainLayout->setAlignment(Qt::AlignCenter);  // 让整个布局的内容居中对齐
+    mainLayout->setAlignment(Qt::AlignCenter);
     
-    // 登录框容器 - 固定宽度400，高度根据内容自适应
-    loginContainer = new QWidget(this);
-    loginContainer->setFixedWidth(400);  // 固定宽度为400
-    // 不设置固定高度，让内容决定
+    // 创建居中布局容器
+    QVBoxLayout* centerLayout = createCenterLayout();
     
-    // 设置容器样式（白色背景+圆角+阴影效果）
-    loginContainer->setStyleSheet(
+    // 将居中布局添加到主布局
+    mainLayout->addStretch(1);
+    mainLayout->addLayout(centerLayout, 0);
+    mainLayout->addStretch(1);
+}
+
+QVBoxLayout* LoginWindow::createCenterLayout() {
+    QVBoxLayout* centerLayout = new QVBoxLayout();
+    centerLayout->setAlignment(Qt::AlignCenter);
+    centerLayout->setSpacing(Dimens::PAGE_PADDING * 2);
+    
+    // 添加Logo
+    centerLayout->addWidget(createLogoLabel(), 0, Qt::AlignCenter);
+    
+    // 创建并添加登录框容器
+    loginContainer = createLoginContainer();
+    centerLayout->addWidget(loginContainer);
+    
+    return centerLayout;
+}
+
+QLabel* LoginWindow::createLogoLabel() {
+    QLabel* logoLabel = new QLabel(this);
+    QPixmap logoPixmap(":/images/logo.png");
+    
+    if (!logoPixmap.isNull()) {
+        logoLabel->setPixmap(logoPixmap.scaled(Dimens::BIG_AVATAR, Dimens::BIG_AVATAR,
+                                               Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    } else {
+        logoLabel->setText("📋");
+        logoLabel->setStyleSheet(QString("font-size: %1px; color: %2;")
+                                .arg(Dimens::BIG_AVATAR)
+                                .arg(Colors::PRIMARY_COLOR.name()));
+    }
+    
+    logoLabel->setAlignment(Qt::AlignCenter);
+    logoLabel->setFixedSize(Dimens::BIG_AVATAR, Dimens::BIG_AVATAR);
+    
+    return logoLabel;
+}
+
+QWidget* LoginWindow::createLoginContainer() {
+    QWidget* container = new QWidget(this);
+    container->setFixedWidth(400);
+    container->setStyleSheet(
         "QWidget {"
         "   background-color: white;"
         "   border-radius: 10px;"
@@ -93,25 +142,59 @@ void LoginWindow::setupUI() {
         "}"
     );
     
-    QVBoxLayout* containerLayout = new QVBoxLayout(loginContainer);
-    // 设置控件之间的间距
+    QVBoxLayout* containerLayout = new QVBoxLayout(container);
     containerLayout->setSpacing(Dimens::PAGE_PADDING);
     
-    // 页签布局
+    // 添加页签
+    containerLayout->addLayout(createTabLayout());
+    
+    // 添加堆叠窗口
+    stackedWidget = createStackedWidget();
+    containerLayout->addWidget(stackedWidget);
+    
+    // 添加登录按钮
+    loginButton = createLoginButton();
+    containerLayout->addWidget(loginButton);
+    
+    // 添加注册按钮
+    registerButton = createRegisterButton();
+    containerLayout->addWidget(registerButton);
+    
+    // 添加忘记密码按钮
+    containerLayout->addLayout(createForgotPasswordLayout());
+    
+    // 添加弹簧
+    containerLayout->addStretch();
+    
+    return container;
+}
+
+QHBoxLayout* LoginWindow::createTabLayout() {
     QHBoxLayout* tabContainerLayout = new QHBoxLayout();
     tabContainerLayout->setSpacing(0);
     tabContainerLayout->setContentsMargins(0, 0, 0, 0);
     
-    // 密码登录页签容器
-    QWidget* passwordTabContainer = new QWidget(loginContainer);
-    passwordTabContainer->setObjectName("passwordTabContainer");
-    passwordTabContainer->setStyleSheet("QWidget#passwordTabContainer { background-color: transparent; }");
+    // 密码登录页签
+    QWidget* passwordTabContainer = createPasswordTabContainer();
+    tabContainerLayout->addWidget(passwordTabContainer);
     
-    QVBoxLayout* passwordTabLayout = new QVBoxLayout(passwordTabContainer);
-    passwordTabLayout->setSpacing(0);
-    passwordTabLayout->setContentsMargins(0, 0, 0, 0);
+    // 验证码登录页签
+    QWidget* emailTabContainer = createEmailTabContainer();
+    tabContainerLayout->addWidget(emailTabContainer);
     
-    passwordLoginTab = new QPushButton("密码登录", passwordTabContainer);
+    return tabContainerLayout;
+}
+
+QWidget* LoginWindow::createPasswordTabContainer() {
+    QWidget* container = new QWidget(loginContainer);
+    container->setObjectName("passwordTabContainer");
+    container->setStyleSheet("QWidget#passwordTabContainer { background-color: transparent; }");
+    
+    QVBoxLayout* layout = new QVBoxLayout(container);
+    layout->setSpacing(0);
+    layout->setContentsMargins(0, 0, 0, 0);
+    
+    passwordLoginTab = new QPushButton("密码登录", container);
     passwordLoginTab->setCursor(Qt::PointingHandCursor);
     passwordLoginTab->setStyleSheet(
         "QPushButton {"
@@ -121,23 +204,28 @@ void LoginWindow::setupUI() {
         "}"
     );
     
-    passwordTabIndicator = new QWidget(passwordTabContainer);
+    passwordTabIndicator = new QWidget(container);
     passwordTabIndicator->setFixedHeight(Dimens::STROKE_WIDTH);
     passwordTabIndicator->setStyleSheet(QString("background-color: %1;").arg(Colors::PRIMARY_COLOR.name()));
     
-    passwordTabLayout->addWidget(passwordLoginTab);
-    passwordTabLayout->addWidget(passwordTabIndicator);
+    layout->addWidget(passwordLoginTab);
+    layout->addWidget(passwordTabIndicator);
     
-    // 验证码登录页签容器
-    QWidget* emailTabContainer = new QWidget(loginContainer);
-    emailTabContainer->setObjectName("emailTabContainer");
-    emailTabContainer->setStyleSheet("QWidget#emailTabContainer { background-color: transparent; }");
+    connect(passwordLoginTab, &QPushButton::clicked, this, &LoginWindow::onPasswordLoginTabClicked);
     
-    QVBoxLayout* emailTabLayout = new QVBoxLayout(emailTabContainer);
-    emailTabLayout->setSpacing(0);
-    emailTabLayout->setContentsMargins(0, 0, 0, 0);
+    return container;
+}
+
+QWidget* LoginWindow::createEmailTabContainer() {
+    QWidget* container = new QWidget(loginContainer);
+    container->setObjectName("emailTabContainer");
+    container->setStyleSheet("QWidget#emailTabContainer { background-color: transparent; }");
     
-    emailLoginTab = new QPushButton("验证码登录", emailTabContainer);
+    QVBoxLayout* layout = new QVBoxLayout(container);
+    layout->setSpacing(0);
+    layout->setContentsMargins(0, 0, 0, 0);
+    
+    emailLoginTab = new QPushButton("验证码登录", container);
     emailLoginTab->setCursor(Qt::PointingHandCursor);
     emailLoginTab->setStyleSheet(
         "QPushButton {"
@@ -147,69 +235,265 @@ void LoginWindow::setupUI() {
         "}"
     );
     
-    emailTabIndicator = new QWidget(emailTabContainer);
+    emailTabIndicator = new QWidget(container);
     emailTabIndicator->setFixedHeight(Dimens::STROKE_WIDTH);
-    emailTabIndicator->setStyleSheet("background-color: transparent;"); // 初始透明
+    emailTabIndicator->setStyleSheet("background-color: transparent;");
     
-    emailTabLayout->addWidget(emailLoginTab);
-    emailTabLayout->addWidget(emailTabIndicator);
+    layout->addWidget(emailLoginTab);
+    layout->addWidget(emailTabIndicator);
     
-    connect(passwordLoginTab, &QPushButton::clicked, this, &LoginWindow::onPasswordLoginTabClicked);
     connect(emailLoginTab, &QPushButton::clicked, this, &LoginWindow::onEmailLoginTabClicked);
     
-    tabContainerLayout->addWidget(passwordTabContainer);
-    tabContainerLayout->addWidget(emailTabContainer);
+    return container;
+}
+
+QStackedWidget* LoginWindow::createStackedWidget() {
+    QStackedWidget* stacked = new QStackedWidget(loginContainer);
     
-    // 堆叠窗口
-    stackedWidget = new QStackedWidget(loginContainer);
+    // 创建密码登录面板和验证码登录面板
+    passwordLoginPanel = createPasswordLoginPanel();  // 使用 createPasswordLoginPanel 而不是 setupPasswordLoginPanel
+    emailLoginPanel = createEmailLoginPanel();        // 使用 createEmailLoginPanel 而不是 setupEmailLoginPanel
     
-    // 创建loading标签（用于显示加载动画）
-    loadingLabel = new QLabel(loginContainer);
-    loadingMovie = new QMovie(":/images/icon_loading.gif", QByteArray(), this);
-    loadingLabel->setMovie(loadingMovie);
-    loadingLabel->setFixedSize(20, 20);
-    loadingLabel->setVisible(false);
-    loadingLabel->setStyleSheet("background-color: transparent;");
+    stacked->addWidget(passwordLoginPanel);
+    stacked->addWidget(emailLoginPanel);
     
-    // 登录按钮
-    loginButton = new QPushButton("登录", loginContainer);
-    loginButton->setFixedHeight(Dimens::BTN_HEIGHT);
-    loginButton->setCursor(Qt::PointingHandCursor);
-    loginButton->setEnabled(false);
-    loginButton->setStyleSheet(
-        "QPushButton {"
-        "   background-color: " + Colors::GRAY_COLOR.name() + ";"
-        "   color: white;"
-        "   border: none;"
-        "   border-radius: " + QString::number(Dimens::BTN_HEIGHT / 2) + "px;"
-        "   font-size: 16px;"
+    return stacked;
+}
+
+QWidget* LoginWindow::createPasswordLoginPanel() {
+    QWidget* panel = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(Dimens::PAGE_PADDING);
+    
+    // 账号输入框
+    usernameEdit = new QLineEdit(panel);
+    usernameEdit->setPlaceholderText("账号");
+    usernameEdit->setFixedHeight(Dimens::INPUT_HEIGHT);
+    usernameEdit->setStyleSheet(createInputStyle());
+    // 修复：确保信号连接
+    connect(usernameEdit, &QLineEdit::textChanged, this, &LoginWindow::onUsernamePasswordChanged);
+    
+    // 密码输入框
+    passwordEdit = new QLineEdit(panel);
+    passwordEdit->setPlaceholderText("密码");
+    passwordEdit->setEchoMode(QLineEdit::Password);
+    passwordEdit->setFixedHeight(Dimens::INPUT_HEIGHT);
+    passwordEdit->setStyleSheet(createInputStyle());
+    // 修复：确保信号连接
+    connect(passwordEdit, &QLineEdit::textChanged, this, &LoginWindow::onUsernamePasswordChanged);
+    
+    layout->addWidget(usernameEdit);
+    layout->addWidget(passwordEdit);
+    
+    return panel;
+}
+
+QWidget* LoginWindow::createEmailLoginPanel() {
+    QWidget* panel = new QWidget();
+    QVBoxLayout* layout = new QVBoxLayout(panel);
+    layout->setContentsMargins(0, Dimens::PAGE_PADDING, 0, 0);  // 修改：设置左右边距为0
+    layout->setSpacing(Dimens::PAGE_PADDING);
+    
+    // 邮箱输入容器（包含发送按钮）
+    QWidget* emailContainer = createEmailInputContainer();
+    layout->addWidget(emailContainer);
+    
+    // 验证码输入框
+    codeEdit = new QLineEdit(panel);
+    codeEdit->setPlaceholderText("验证码");
+    codeEdit->setFixedHeight(Dimens::INPUT_HEIGHT);
+    codeEdit->setStyleSheet(createInputStyle());
+    connect(codeEdit, &QLineEdit::textChanged, this, &LoginWindow::onCodeChanged);
+    
+    layout->addWidget(codeEdit);
+    
+    return panel;
+}
+
+QWidget* LoginWindow::createEmailInputContainer() {
+    QWidget* container = new QWidget();
+    container->setFixedHeight(Dimens::INPUT_HEIGHT);
+    
+    // 关键修改：给容器设置圆角边框背景，模拟输入框的外观
+    container->setStyleSheet(
+        "QWidget { "
+        "   background-color: white; "
+        "   border: 1px solid " + Colors::GRAY_COLOR.name() + "; "
+        "   border-radius: " + QString::number(Dimens::INPUT_HEIGHT / 2) + "px; "
+        "}"
+        "QWidget:focus-within { " // 当内部控件获得焦点时，改变边框颜色
+        "   border-color: " + Colors::PRIMARY_COLOR.name() + "; "
         "}"
     );
-    connect(loginButton, &QPushButton::clicked, this, &LoginWindow::onLoginClicked);
+
+    QHBoxLayout* layout = new QHBoxLayout(container);
+    // 关键修改：设置左右内边距
+    // 左边距：Dimens::PAGE_PADDING
+    // 上/下边距：0 (因为容器高度已固定)
+    // 右边距：Dimens::PAGE_PADDING (满足题目要求的离右边距)
+    layout->setContentsMargins(Dimens::PAGE_PADDING, 0, Dimens::PAGE_PADDING, 0);
+    layout->setSpacing(0); // 输入框和按钮之间紧贴，或者根据需要设一个小值
+
+    emailEdit = new QLineEdit(container);
+    emailEdit->setPlaceholderText("邮箱");
+    emailEdit->setFixedHeight(Dimens::INPUT_HEIGHT);
     
-    // 注册按钮
-    registerButton = new QPushButton("注册账号", loginContainer);
-    registerButton->setFixedHeight(Dimens::BTN_HEIGHT);
-    registerButton->setCursor(Qt::PointingHandCursor);
-    registerButton->setStyleSheet(
+    // 修改输入框样式：无边框、无圆角、透明背景，因为容器已经提供了边框
+    emailEdit->setStyleSheet(
+        "QLineEdit { "
+        "   border: none; "
+        "   background-color: transparent; "
+        "   padding: 0; " 
+        "   font-size: 14px; "
+        "   color: " + Colors::TEXT_COLOR.name() + "; "
+        "}"
+        "QLineEdit:focus { "
+        "   background-color: transparent; " // 保持透明
+        "}"
+    );
+    
+    connect(emailEdit, &QLineEdit::textChanged, this, &LoginWindow::onEmailChanged);
+
+    sendCodeBtn = new QPushButton(container);
+    sendCodeBtn->setFixedSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE);
+    sendCodeBtn->setCursor(Qt::PointingHandCursor);
+    sendCodeBtn->setEnabled(false);
+    
+    // 按钮样式保持不变，确保背景透明
+    sendCodeBtn->setStyleSheet(
+        "QPushButton { "
+        "   background-color: transparent; "
+        "   border: none; "
+        "   icon: url(:/images/icon_send.png); "
+        "   icon-size: " + QString::number(Dimens::SMALL_ICON_SIZE) + "px; "
+        "}"
+        "QPushButton:hover { "
+        "   opacity: 0.8; "
+        "}"
+        "QPushButton:disabled { "
+        "   opacity: 0.3; "
+        "}"
+    );
+    
+    connect(sendCodeBtn, &QPushButton::clicked, this, &LoginWindow::onSendCodeClicked);
+
+    layout->addWidget(emailEdit, 1); // 设置拉伸因子为1，让输入框占据剩余空间
+    layout->addWidget(sendCodeBtn);  // 按钮固定在右侧
+    
+    // 不需要 setAlignment(sendCodeBtn, Qt::AlignRight)，因为 layout 默认从左到右，
+    // 且 emailEdit 设置了拉伸，sendCodeBtn 自然会排在最右边。
+    // 右边的间距由 layout->setContentsMargins(..., Dimens::PAGE_PADDING, 0) 控制。
+
+    return container;
+}
+
+
+
+QString LoginWindow::createInputStyle() {
+    return QString(
+        "QLineEdit {"
+        "   border: 1px solid %1;"
+        "   border-radius: %2px;"
+        "   padding: 0 %3px;"
+        "   font-size: 14px;"
+        "   background-color: white;"
+        "}"
+        "QLineEdit:focus {"
+        "   border-color: %4;"
+        "}"
+    ).arg(Colors::GRAY_COLOR.name())
+     .arg(Dimens::INPUT_HEIGHT / 2)
+     .arg(Dimens::PAGE_PADDING)
+     .arg(Colors::PRIMARY_COLOR.name());
+}
+
+QString LoginWindow::createEmailInputStyle() {
+    return QString(
+        "QLineEdit {"
+        "   border: 1px solid %1;"
+        "   border-radius: %2px;"
+        "   padding: 0 15px;"
+        "   padding-right: %3px;"  // 为按钮预留空间
+        "   font-size: 14px;"
+        "   background-color: white;"
+        "}"
+        "QLineEdit:focus {"
+        "   border-color: %4;"
+        "}"
+    ).arg(Colors::GRAY_COLOR.name())
+     .arg(Dimens::INPUT_HEIGHT / 2)
+     .arg(Dimens::SMALL_ICON_SIZE + Dimens::PAGE_PADDING * 2)  // 按钮宽度 + 左右边距
+     .arg(Colors::PRIMARY_COLOR.name());
+}
+
+QString LoginWindow::createSendButtonStyle() {
+    return QString(
+        "QPushButton {"
+        "   background-color: transparent;"
+        "   border: none;"
+        "   icon: url(:/images/icon_send.png);"
+        "   icon-size: %1px;"
+        "}"
+    ).arg(Dimens::SMALL_ICON_SIZE);
+}
+
+QPushButton* LoginWindow::createLoginButton() {
+    QPushButton* button = new QPushButton("登录", loginContainer);
+    button->setFixedHeight(Dimens::BTN_HEIGHT);
+    button->setCursor(Qt::PointingHandCursor);
+    button->setEnabled(false);
+    button->setStyleSheet(createDisabledLoginButtonStyle());
+    // 修复：确保这里有连接
+    connect(button, &QPushButton::clicked, this, &LoginWindow::onLoginClicked);
+    return button;
+}
+
+QString LoginWindow::createDisabledLoginButtonStyle() {
+    return QString(
+        "QPushButton {"
+        "   background-color: %1;"
+        "   color: white;"
+        "   border: none;"
+        "   border-radius: %2px;"
+        "   font-size: 16px;"
+        "}"
+    ).arg(Colors::GRAY_COLOR.name())
+     .arg(Dimens::BTN_HEIGHT / 2);
+}
+
+QPushButton* LoginWindow::createRegisterButton() {
+    QPushButton* button = new QPushButton("注册账号", loginContainer);
+    button->setFixedHeight(Dimens::BTN_HEIGHT);
+    button->setCursor(Qt::PointingHandCursor);
+    button->setStyleSheet(createRegisterButtonStyle());
+    connect(button, &QPushButton::clicked, [](){});
+    return button;
+}
+
+QString LoginWindow::createRegisterButtonStyle() {
+    return QString(
         "QPushButton {"
         "   background-color: white;"
-        "   color: " + Colors::TEXT_COLOR.name() + ";"
-        "   border: 1px solid " + Colors::GRAY_COLOR.name() + ";"
-        "   border-radius: " + QString::number(Dimens::BTN_HEIGHT / 2) + "px;"
+        "   color: %1;"
+        "   border: 1px solid %2;"
+        "   border-radius: %3px;"
         "   font-size: 16px;"
         "}"
         "QPushButton:hover {"
-        "   border-color: " + Colors::PRIMARY_COLOR.name() + ";"
-        "   color: " + Colors::PRIMARY_COLOR.name() + ";"
+        "   border-color: %4;"
+        "   color: %4;"
         "}"
-    );
-    // 预留注册点击事件
-    connect(registerButton, &QPushButton::clicked, [](){
-        // 后续实现注册功能
-    });
+    ).arg(Colors::TEXT_COLOR.name())
+     .arg(Colors::GRAY_COLOR.name())
+     .arg(Dimens::BTN_HEIGHT / 2)
+     .arg(Colors::PRIMARY_COLOR.name());
+}
+
+QHBoxLayout* LoginWindow::createForgotPasswordLayout() {
+    QHBoxLayout* layout = new QHBoxLayout();
+    layout->setAlignment(Qt::AlignCenter);
     
-    // 忘记密码按钮
     forgotPasswordButton = new QPushButton("忘记密码？", loginContainer);
     forgotPasswordButton->setCursor(Qt::PointingHandCursor);
     forgotPasswordButton->setStyleSheet(
@@ -224,37 +508,46 @@ void LoginWindow::setupUI() {
         "   color: " + Colors::PRIMARY_COLOR.name() + ";"
         "}"
     );
-    // 预留忘记密码点击事件
-    connect(forgotPasswordButton, &QPushButton::clicked, [](){
-        // 后续实现忘记密码功能
+    connect(forgotPasswordButton, &QPushButton::clicked, [](){});
+    
+    layout->addWidget(forgotPasswordButton);
+    return layout;
+}
+
+// Loading动画相关方法
+void LoginWindow::createLoadingLabel() {
+    if (!loadingLabel) {
+        loadingLabel = new QLabel(loginContainer);
+        loadingLabel->setFixedSize(20, 20);
+        loadingLabel->setVisible(false);
+        loadingLabel->setStyleSheet("background-color: transparent;");
+    }
+    
+    if (!loadingMovie) {
+        loadingMovie = new QMovie(":/images/icon_loading.gif", QByteArray(), this);
+        loadingLabel->setMovie(loadingMovie);
+    }
+}
+
+void LoginWindow::createSendButtonLoading() {
+    sendButtonLoadingMovie = new QMovie(":/images/loading.gif", QByteArray(), this);
+    connect(sendButtonLoadingMovie, &QMovie::frameChanged, [this](int frame) {
+        if (isSendingCode) {
+            QPixmap pixmap = sendButtonLoadingMovie->currentPixmap();
+            QTransform transform;
+            transform.rotate(frame * 10);
+            pixmap = pixmap.transformed(transform);
+            sendCodeBtn->setIcon(QIcon(pixmap));
+            sendCodeBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
+        }
     });
-    
-    // 组装布局
-    containerLayout->addLayout(tabContainerLayout);
-    containerLayout->addWidget(stackedWidget);
-    
-    // 直接添加登录按钮，不包含loading标签
-    containerLayout->addWidget(loginButton);
-    containerLayout->addWidget(registerButton);
-    
-    QHBoxLayout* forgotLayout = new QHBoxLayout();
-    forgotLayout->setAlignment(Qt::AlignCenter);
-    forgotLayout->addWidget(forgotPasswordButton);
-    containerLayout->addLayout(forgotLayout);
-    
-    // 在containerLayout最后添加一个垂直弹簧，防止内容被压缩
-    containerLayout->addStretch();
-    
-    // 修改主布局的添加方式 - 移除两个addStretch，改为添加带伸缩因子的布局
-    mainLayout->addStretch(1);  // 上方弹簧，伸缩因子为1
-    mainLayout->addWidget(loginContainer, 0, Qt::AlignCenter);  // 登录框，不伸缩，居中对齐
-    mainLayout->addStretch(1);  // 下方弹簧，伸缩因子为1
 }
 
 void LoginWindow::setupPasswordLoginPanel() {
     passwordLoginPanel = new QWidget();
     QVBoxLayout* layout = new QVBoxLayout(passwordLoginPanel);
-    layout->setSpacing(Dimens::PAGE_PADDING);  // 设置输入框之间的间距
+    layout->setSpacing(Dimens::PAGE_PADDING);
+    layout->setContentsMargins(0, 0, 0, 0);
     
     // 账号输入框
     usernameEdit = new QLineEdit(passwordLoginPanel);
@@ -272,6 +565,7 @@ void LoginWindow::setupPasswordLoginPanel() {
         "   border-color: " + Colors::PRIMARY_COLOR.name() + ";"
         "}"
     );
+    // 修复：连接textChanged信号
     connect(usernameEdit, &QLineEdit::textChanged, this, &LoginWindow::onUsernamePasswordChanged);
     
     // 密码输入框
@@ -291,13 +585,18 @@ void LoginWindow::setupPasswordLoginPanel() {
         "   border-color: " + Colors::PRIMARY_COLOR.name() + ";"
         "}"
     );
+    // 修复：连接textChanged信号
     connect(passwordEdit, &QLineEdit::textChanged, this, &LoginWindow::onUsernamePasswordChanged);
     
     layout->addWidget(usernameEdit);
     layout->addWidget(passwordEdit);
     
     stackedWidget->addWidget(passwordLoginPanel);
+    
+    // 修复：初始化时检查一次输入框状态
+    onUsernamePasswordChanged();
 }
+
 
 void LoginWindow::setupEmailLoginPanel() {
     emailLoginPanel = new QWidget();
@@ -340,7 +639,7 @@ void LoginWindow::setupEmailLoginPanel() {
         "QPushButton {"
         "   background-color: transparent;"
         "   border: none;"
-        "   icon: url(:/resources/images/icon_send.png);"
+        "   icon: url(:/images/icon_send.png);"
         "   icon-size: " + QString::number(Dimens::SMALL_ICON_SIZE) + "px;"
         "}"
     );
@@ -422,7 +721,7 @@ void LoginWindow::stopSendButtonLoading() {
         "QPushButton {"
         "   background-color: transparent;"
         "   border: none;"
-        "   icon: url(:/resources/images/icon_send.png);"
+        "   icon: url(:/images/icon_send.png);"
         "   icon-size: " + QString::number(Dimens::SMALL_ICON_SIZE) + "px;"
         "}"
     );
@@ -445,10 +744,14 @@ void LoginWindow::onEmailLoginTabClicked() {
 }
 
 void LoginWindow::onUsernamePasswordChanged() {
+    qDebug() << "onUsernamePasswordChanged called - username:" << usernameEdit->text() 
+             << "password:" << QString(passwordEdit->text().length(), '*');
+    
     bool hasContent = !usernameEdit->text().isEmpty() && !passwordEdit->text().isEmpty();
     loginButton->setEnabled(hasContent);
     
     if (hasContent) {
+        qDebug() << "Enabling login button with PRIMARY_COLOR";
         loginButton->setStyleSheet(
             "QPushButton {"
             "   background-color: " + Colors::PRIMARY_COLOR.name() + ";"
@@ -462,6 +765,7 @@ void LoginWindow::onUsernamePasswordChanged() {
             "}"
         );
     } else {
+        qDebug() << "Disabling login button with GRAY_COLOR";
         loginButton->setStyleSheet(
             "QPushButton {"
             "   background-color: " + Colors::GRAY_COLOR.name() + ";"
@@ -483,7 +787,7 @@ void LoginWindow::onEmailChanged(const QString& email) {
             "QPushButton {"
             "   background-color: transparent;"
             "   border: none;"
-            "   icon: url(:/resources/images/icon_send.png);"
+            "   icon: url(:/images/icon_send.png);"
             "   icon-size: " + QString::number(Dimens::SMALL_ICON_SIZE) + "px;"
             "}"
         );
@@ -589,31 +893,43 @@ void LoginWindow::setLoading(bool loading) {
         // 加载状态：隐藏文字，显示加载动画
         loginButton->setText("");  // 清空文字
         
-        // 创建水平布局来容纳动画
-        QHBoxLayout* layout = qobject_cast<QHBoxLayout*>(loginButton->layout());
-        if (!layout) {
-            // 如果按钮还没有布局，创建一个
-            layout = new QHBoxLayout(loginButton);
-            layout->setContentsMargins(0, 0, 0, 0);
-            layout->setAlignment(Qt::AlignCenter);
-        }
-        
-        // 清空现有布局
-        QLayoutItem* item;
-        while ((item = layout->takeAt(0)) != nullptr) {
-            delete item->widget();
-            delete item;
+        // 确保loadingLabel已创建
+        if (!loadingLabel) {
+            createLoadingLabel();
         }
         
         // 将loading标签移到按钮内
         loadingLabel->setParent(loginButton);
         loadingLabel->setVisible(true);
+        
+        if (!loadingMovie) {
+            loadingMovie = new QMovie(":/images/icon_loading.gif", QByteArray(), this);
+            loadingLabel->setMovie(loadingMovie);
+        }
         loadingMovie->start();
         
-        // 将loading标签添加到按钮布局中并居中
-        layout->addWidget(loadingLabel, 0, Qt::AlignCenter);
+        // 清除按钮原有的布局（如果有）
+        QLayout* oldLayout = loginButton->layout();
+        if (oldLayout) {
+            // 清空布局中的所有项目
+            QLayoutItem* item;
+            while ((item = oldLayout->takeAt(0)) != nullptr) {
+                if (item->widget() && item->widget() != loadingLabel) {
+                    item->widget()->deleteLater();
+                }
+                delete item;
+            }
+            delete oldLayout;
+        }
         
-        // 设置按钮样式（保持原有样式，但确保有足够的padding来容纳动画）
+        // 创建新的水平布局来居中loading标签
+        QHBoxLayout* layout = new QHBoxLayout(loginButton);
+        layout->setContentsMargins(0, 0, 0, 0);
+        layout->addStretch();  // 左侧弹簧
+        layout->addWidget(loadingLabel);
+        layout->addStretch();  // 右侧弹簧
+        
+        // 设置按钮样式
         loginButton->setStyleSheet(
             "QPushButton {"
             "   background-color: " + Colors::PRIMARY_COLOR.name() + ";"
@@ -631,23 +947,30 @@ void LoginWindow::setLoading(bool loading) {
     } else {
         // 非加载状态：显示文字，隐藏加载动画
         
-        // 将loading标签移回原来的父控件（loginContainer）
-        loadingLabel->setParent(loginContainer);
-        loadingLabel->setVisible(false);
-        loadingMovie->stop();
+        if (loadingLabel) {
+            loadingLabel->setParent(loginContainer);
+            loadingLabel->setVisible(false);
+        }
+        
+        if (loadingMovie) {
+            loadingMovie->stop();
+        }
         
         // 恢复按钮文字
         loginButton->setText("登录");
         
-        // 清空按钮内的布局
-        QLayout* layout = loginButton->layout();
-        if (layout) {
+        // 删除按钮内的布局，恢复默认状态
+        QLayout* oldLayout = loginButton->layout();
+        if (oldLayout) {
+            // 清空布局中的所有项目
             QLayoutItem* item;
-            while ((item = layout->takeAt(0)) != nullptr) {
-                delete item->widget();
+            while ((item = oldLayout->takeAt(0)) != nullptr) {
+                if (item->widget() && item->widget() != loadingLabel) {
+                    item->widget()->deleteLater();
+                }
                 delete item;
             }
-            delete layout;
+            delete oldLayout;
         }
         
         // 根据输入状态设置按钮样式

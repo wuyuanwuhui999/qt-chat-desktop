@@ -128,6 +128,10 @@ private slots:
 
 private:
     void setupUI();
+    void setupUserInfoArea();
+    void setupNewChatArea();
+    void setupChatHistoryArea();
+    QIcon createTransparentIcon(const QString &path, double opacity);
     void loadUserInfo();
     void loadTenantList();
     void loadChatHistory(int pageNum = 1, bool append = false);
@@ -146,6 +150,7 @@ private:
     QVBoxLayout* mainLayout;
     QWidget* userInfoWidget;
     QHBoxLayout* userInfoLayout;
+    QWidget* newChatWidget;
     QLabel* avatarLabel;
     QVBoxLayout* userTextLayout;
     QLabel* userNameLabel;

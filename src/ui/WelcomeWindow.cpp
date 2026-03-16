@@ -16,8 +16,8 @@ WelcomeWindow::WelcomeWindow(QWidget *parent) : QWidget(parent) {
         setGeometry(screen->geometry());
     }
     
-    // 设置窗口样式
-    setStyleSheet(QString("background-color: %1;").arg(Colors::PAGE_BACKGROUND_COLOR.name()));
+    // 设置窗口样式 - 背景色设置为白色，去除灰色
+    setStyleSheet(QString("background-color: %1;").arg(Colors::WHITE_COLOR.name()));
     
     layout = new QVBoxLayout(this);
     layout->setAlignment(Qt::AlignCenter);
@@ -28,6 +28,7 @@ WelcomeWindow::WelcomeWindow(QWidget *parent) : QWidget(parent) {
     
     // Logo - 使用 Dimens.h 中的 BIG_AVATAR 大小
     logoLabel = new QLabel(this);
+    logoLabel->setStyleSheet("background-color: transparent;"); // 设置背景透明
     
     QPixmap logoPixmap(":/images/logo.png");
     if (!logoPixmap.isNull()) {
@@ -37,17 +38,17 @@ WelcomeWindow::WelcomeWindow(QWidget *parent) : QWidget(parent) {
                                                Qt::SmoothTransformation));
     } else {
         logoLabel->setText("LOGO");
-        logoLabel->setStyleSheet(QString("color: %1; font-size: %2px; font-weight: bold;")
+        logoLabel->setStyleSheet(QString("color: %1; font-size: %2px; font-weight: bold; background-color: transparent;")
                                 .arg(Colors::PRIMARY_COLOR.name())
                                 .arg(Dimens::FONT_SIZE_XL));
     }
     
     logoLabel->setAlignment(Qt::AlignCenter);
     
-    // 欢迎文字 - 使用 PRIMARY_COLOR
+    // 欢迎文字 - 使用 PRIMARY_COLOR，背景透明
     welcomeLabel = new QLabel("欢迎使用", this);
     welcomeLabel->setAlignment(Qt::AlignCenter);
-    welcomeLabel->setStyleSheet(QString("color: %1; font-size: %2px; font-weight: bold;")
+    welcomeLabel->setStyleSheet(QString("color: %1; font-size: %2px; font-weight: bold; background-color: transparent;")
                                 .arg(Colors::PRIMARY_COLOR.name())
                                 .arg(Dimens::FONT_SIZE_XL));
     

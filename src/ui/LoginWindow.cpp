@@ -1,4 +1,3 @@
-// LoginWindow.cpp
 #include "LoginWindow.h"
 #include "network/NetworkManager.h"
 #include "utils/TokenManager.h"
@@ -77,8 +76,6 @@ void LoginWindow::resizeEvent(QResizeEvent* event) {
         // 注意：由于使用了布局，通常不需要手动设置位置
     }
 }
-
-// LoginWindow.cpp 中的修改部分
 
 void LoginWindow::setupUI() {
     // 主布局 - 使用弹性布局使登录框居中

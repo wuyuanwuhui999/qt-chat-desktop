@@ -65,43 +65,83 @@ void LeftPanel::setupUI() {
     mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
-    
-    // 用户信息区域 - 移除底部边框
+
+    // 1. 初始化用户信息区域 (包含头像、租户下拉等)
+    setupUserInfoArea();
+
+    // 2. 初始化新对话按钮区域
+    setupNewChatArea();
+
+    // 3. 初始化聊天历史滚动区域
+    setupChatHistoryArea();
+
+    // 4. 将各区域添加到主布局
+    mainLayout->addWidget(userInfoWidget);
+    mainLayout->addWidget(newChatWidget);
+    mainLayout->addWidget(chatScrollArea);
+}
+
+/**
+ * @brief 创建带有指定透明度的图标
+ * @param path 资源路径，例如 ":/images/icon_down.png"
+ * @param opacity 透明度 (0.0 - 1.0)，例如 0.5 表示 50%
+ * @return 处理后的 QIcon，如果加载失败返回空 QIcon
+ */
+QIcon LeftPanel::createTransparentIcon(const QString &path, double opacity) {
+    QPixmap originalPixmap(path);
+    if (originalPixmap.isNull()) {
+        return QIcon();
+    }
+
+    // 创建一个新的 QPixmap 用于绘制
+    QPixmap transparentPixmap(originalPixmap.size());
+    transparentPixmap.fill(Qt::transparent);
+
+    QPainter painter(&transparentPixmap);
+    painter.setOpacity(opacity); // 设置画笔透明度
+    painter.drawPixmap(0, 0, originalPixmap);
+    painter.end();
+
+    return QIcon(transparentPixmap);
+}
+
+void LeftPanel::setupUserInfoArea() {
+    // 用户信息容器
     userInfoWidget = new QWidget(this);
     userInfoWidget->setFixedHeight(Dimens::BAR_HEIGHT);
     userInfoWidget->setStyleSheet(QString(
         "background-color: white;"
-        "border-bottom: none;"  // 移除边框
+        "border-bottom: none;"
     ));
     
     userInfoLayout = new QHBoxLayout(userInfoWidget);
     userInfoLayout->setContentsMargins(Dimens::PAGE_PADDING, 0, Dimens::PAGE_PADDING, 0);
     userInfoLayout->setSpacing(Dimens::PAGE_PADDING);
-    
+
     // 头像
     avatarLabel = new QLabel(userInfoWidget);
     avatarLabel->setFixedSize(Dimens::MIDDLE_AVATAR, Dimens::MIDDLE_AVATAR);
     avatarLabel->setScaledContents(true);
-    
-    // 用户文本信息
+    // 注意：此处可能需要设置头像图片，原代码未显示，保持原样
+
+    // 用户文本信息布局
     userTextLayout = new QVBoxLayout();
     userTextLayout->setContentsMargins(0, 0, 0, 0);
     userTextLayout->setSpacing(Dimens::SMALL_MARGIN);
-    
+
     userNameLabel = new QLabel(userInfoWidget);
     userNameLabel->setStyleSheet(QString("color: %1; font-size: %2px; font-weight: bold; background-color: transparent;")
-                                .arg(Colors::TEXT_COLOR.name())
-                                .arg(Dimens::FONT_SIZE_NORMAL));
-    
-    // 租户名称容器（包含文字和三角形按钮）
+        .arg(Colors::TEXT_COLOR.name())
+        .arg(Dimens::FONT_SIZE_NORMAL));
+
+    // 租户名称容器
     QWidget* tenantContainer = new QWidget(userInfoWidget);
     tenantContainer->setCursor(Qt::PointingHandCursor);
     tenantContainer->setStyleSheet("background-color: transparent; border: none;");
-    
     QHBoxLayout* tenantLayout = new QHBoxLayout(tenantContainer);
     tenantLayout->setContentsMargins(0, 0, 0, 0);
     tenantLayout->setSpacing(Dimens::SMALL_MARGIN);
-    
+
     // 租户名称按钮
     tenantNameBtn = new QPushButton(tenantContainer);
     tenantNameBtn->setCursor(Qt::PointingHandCursor);
@@ -118,68 +158,68 @@ void LeftPanel::setupUI() {
         "   color: %3;"
         "}"
     ).arg(Colors::SUB_TITLE_COLOR.name())
-     .arg(Dimens::FONT_SIZE_NORMAL - 2)
-     .arg(Colors::PRIMARY_COLOR.name()));
-    
-    // 向下三角形按钮
+        .arg(Dimens::FONT_SIZE_NORMAL - 2)
+        .arg(Colors::PRIMARY_COLOR.name()));
+
+    // 向下三角形按钮 (使用 helper 函数处理透明度)
     tenantArrowBtn = new QPushButton(tenantContainer);
     tenantArrowBtn->setCursor(Qt::PointingHandCursor);
     tenantArrowBtn->setFixedSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE);
-    tenantArrowBtn->setStyleSheet(QString(
+    
+    // 基础样式 (移除 opacity，因为图标已处理)
+    QString btnStyle = 
         "QPushButton {"
         "   background-color: transparent;"
         "   border: none;"
-        "   icon: url(:/resources/images/arrow_down.png);"
-        "   icon-size: %1px;"
         "}"
         "QPushButton:hover {"
-        "   icon: url(:/resources/images/arrow_down_hover.png);"
-        "}"
-    ).arg(Dimens::SMALL_ICON_SIZE));
-    
-    // 如果没有箭头图标，使用文本箭头
-    if (tenantArrowBtn->icon().isNull()) {
+        "   background-color: rgba(0, 0, 0, 10);" 
+        "}";
+    tenantArrowBtn->setStyleSheet(btnStyle);
+
+    // 应用带透明度的图标
+    QIcon arrowIcon = createTransparentIcon(":/images/icon_down.png", 0.5);
+    if (!arrowIcon.isNull()) {
+        tenantArrowBtn->setIcon(arrowIcon);
+        tenantArrowBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
+    } else {
+        // 回退方案：文字箭头
         tenantArrowBtn->setText("▼");
-        tenantArrowBtn->setStyleSheet(QString(
+        tenantArrowBtn->setStyleSheet(btnStyle + 
             "QPushButton {"
-            "   background-color: transparent;"
-            "   color: %1;"
-            "   font-size: %2px;"
-            "   border: none;"
+            "   color: rgba(100, 100, 100, 128);" 
+            "   font-size: 14px;"
             "   padding: 0;"
-            "}"
-            "QPushButton:hover {"
-            "   color: %3;"
-            "}"
-        ).arg(Colors::SUB_TITLE_COLOR.name())
-         .arg(Dimens::FONT_SIZE_NORMAL - 2)
-         .arg(Colors::PRIMARY_COLOR.name()));
+            "}");
     }
-    
+
     tenantLayout->addWidget(tenantNameBtn);
     tenantLayout->addWidget(tenantArrowBtn);
     tenantLayout->addStretch();
-    
+
+    // 连接信号
     connect(tenantNameBtn, &QPushButton::clicked, this, &LeftPanel::onTenantMenuClicked);
     connect(tenantArrowBtn, &QPushButton::clicked, this, &LeftPanel::onTenantMenuClicked);
-    
+
+    // 组装用户信息部分
     userTextLayout->addWidget(userNameLabel);
     userTextLayout->addWidget(tenantContainer);
-    
+
     userInfoLayout->addWidget(avatarLabel);
     userInfoLayout->addLayout(userTextLayout);
     userInfoLayout->addStretch();
-    
-    // 新对话按钮区域
-    QWidget* newChatWidget = new QWidget(this);
+}
+
+void LeftPanel::setupNewChatArea() {
+    newChatWidget = new QWidget(this);
     newChatWidget->setFixedHeight(Dimens::BTN_HEIGHT + Dimens::PAGE_PADDING * 2);
     newChatWidget->setStyleSheet("background-color: white;");
     
     QVBoxLayout* newChatLayout = new QVBoxLayout(newChatWidget);
-    newChatLayout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING, 
-                                      Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
-    
-     QPushButton* newChatBtn = new QPushButton("+ 开启新对话", newChatWidget);
+    newChatLayout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING,
+        Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
+
+    QPushButton* newChatBtn = new QPushButton("+ 开启新对话", newChatWidget);
     newChatBtn->setFixedHeight(Dimens::BTN_HEIGHT);
     newChatBtn->setCursor(Qt::PointingHandCursor);
     newChatBtn->setStyleSheet(QString(
@@ -195,22 +235,25 @@ void LeftPanel::setupUI() {
         "   background-color: %4;"
         "}"
     ).arg(Colors::PRIMARY_COLOR.name())
-     .arg(Dimens::BTN_HEIGHT / 2)
-     .arg(Dimens::FONT_SIZE_NORMAL)
-     .arg(Colors::PRIMARY_COLOR.lighter(110).name()));
-    
+        .arg(Dimens::BTN_HEIGHT / 2)
+        .arg(Dimens::FONT_SIZE_NORMAL)
+        .arg(Colors::PRIMARY_COLOR.lighter(110).name()));
+
     connect(newChatBtn, &QPushButton::clicked, [this](){
         qDebug() << "New chat button clicked";
-        emit newChatClicked();  // 发射新对话信号
+        emit newChatClicked();
     });
-    
+
     newChatLayout->addWidget(newChatBtn);
-    
-    // 聊天历史滚动区域
+}
+
+void LeftPanel::setupChatHistoryArea() {
     chatScrollArea = new QScrollArea(this);
     chatScrollArea->setWidgetResizable(true);
     chatScrollArea->setFrameShape(QFrame::NoFrame);
     chatScrollArea->setStyleSheet("QScrollArea { background-color: white; border: none; }");
+    
+    // 自定义滚动条样式
     chatScrollArea->verticalScrollBar()->setStyleSheet(
         "QScrollBar:vertical {"
         "   background-color: transparent;"
@@ -229,7 +272,7 @@ void LeftPanel::setupUI() {
         "   height: 0px;"
         "}"
     );
-    
+
     chatContainer = new QWidget();
     chatContainer->setStyleSheet("background-color: white;");
     chatContainer->installEventFilter(this);
@@ -237,21 +280,17 @@ void LeftPanel::setupUI() {
     chatLayout = new QVBoxLayout(chatContainer);
     chatLayout->setContentsMargins(Dimens::PAGE_PADDING, 0, Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
     chatLayout->setSpacing(Dimens::PAGE_PADDING);
-    chatLayout->addStretch();  // 添加弹簧，使内容从顶部开始
+    chatLayout->addStretch(); // 弹簧，使内容靠上
     
     chatScrollArea->setWidget(chatContainer);
-    
-    // 监听滚动事件
+
+    // 监听滚动事件以加载更多
     QScrollBar* scrollBar = chatScrollArea->verticalScrollBar();
     connect(scrollBar, &QScrollBar::valueChanged, [this, scrollBar](int value) {
         if (scrollBar->maximum() > 0 && value >= scrollBar->maximum() - 50) {
             onScrollToBottom();
         }
     });
-    
-    mainLayout->addWidget(userInfoWidget);
-    mainLayout->addWidget(newChatWidget);
-    mainLayout->addWidget(chatScrollArea);
 }
 
 void LeftPanel::loadUserInfo() {
@@ -652,7 +691,7 @@ void LeftPanel::updateChatList(const QList<ChatHistory>& newChats, int total, bo
     if (!append) {
         clearChatList();
     }
-    
+
     if (newChats.isEmpty()) {
         // 显示空状态提示
         QLabel* emptyLabel = new QLabel("暂无历史对话", chatContainer);
@@ -668,32 +707,33 @@ void LeftPanel::updateChatList(const QList<ChatHistory>& newChats, int total, bo
         chatLayout->insertWidget(chatLayout->count() - 1, emptyLabel);
         return;
     }
-    
+
     // 按时间分组
     QMap<QString, QList<ChatHistory>> groupedChats;
     for (const ChatHistory& chat : newChats) {
         QString timeLabel = formatTimeLabel(chat.createTime);
         groupedChats[timeLabel].append(chat);
     }
-    
+
     // 更新显示
     for (auto it = groupedChats.begin(); it != groupedChats.end(); ++it) {
         QString timeLabel = it.key();
         QList<ChatHistory> chats = it.value();
-        
+
         // 添加时间标签
         QLabel* timeLabelWidget = new QLabel(timeLabel, chatContainer);
+        // 修改：移除上下 padding，确保间距仅由 chatLayout 的 spacing (Dimens::PAGE_PADDING) 控制
         timeLabelWidget->setStyleSheet(QString(
             "color: %1;"
             "font-size: %2px;"
             "font-weight: bold;"
-            "padding: %3px 0 %3px 0;"
+            "padding: 0px;" 
             "background-color: transparent;"
         ).arg(Colors::GRAY_COLOR.name())
-         .arg(Dimens::FONT_SIZE_NORMAL - 2)
-         .arg(Dimens::SMALL_MARGIN));
-        chatLayout->insertWidget(chatLayout->count() - 1, timeLabelWidget);
+         .arg(Dimens::FONT_SIZE_NORMAL - 2));
         
+        chatLayout->insertWidget(chatLayout->count() - 1, timeLabelWidget);
+
         // 添加聊天项
         for (const ChatHistory& chat : chats) {
             QWidget* chatItem = createChatItemWidget(chat);
@@ -706,7 +746,7 @@ void LeftPanel::updateChatList(const QList<ChatHistory>& newChats, int total, bo
 QWidget* LeftPanel::createChatItemWidget(const ChatHistory& chat) {
     QWidget* widget = new QWidget(chatContainer);
     widget->setCursor(Qt::PointingHandCursor);
-    widget->setFixedHeight(60);  // 固定高度
+    // 移除固定高度，改为根据内容自动调整
     widget->setObjectName(QString("chat_item_%1").arg(chat.id));
     widget->setStyleSheet(QString(
         "QWidget {"
@@ -727,6 +767,9 @@ QWidget* LeftPanel::createChatItemWidget(const ChatHistory& chat) {
     // 提示词
     QLabel* promptLabel = new QLabel(chat.prompt, widget);
     promptLabel->setWordWrap(true);
+    // 移除固定高度，让高度根据内容自适应
+    // promptLabel->setFixedHeight(40);  // 两行高度
+    promptLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     promptLabel->setStyleSheet(QString(
         "color: %1;"
         "font-size: %2px;"
@@ -734,9 +777,6 @@ QWidget* LeftPanel::createChatItemWidget(const ChatHistory& chat) {
         "border: none;"
     ).arg(Colors::TEXT_COLOR.name())
      .arg(Dimens::FONT_SIZE_NORMAL));
-    
-    // 限制最多两行
-    promptLabel->setFixedHeight(40);  // 两行高度
     
     layout->addWidget(promptLabel);
     

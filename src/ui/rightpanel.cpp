@@ -63,11 +63,11 @@ RightPanel::RightPanel(QWidget *parent)
 
 void RightPanel::setupUI() {
     mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(Dimens::PAGE_PADDING * 2, 
-                                   Dimens::PAGE_PADDING * 2, 
-                                   Dimens::PAGE_PADDING * 2, 
-                                   Dimens::PAGE_PADDING * 2);
-    mainLayout->setSpacing(Dimens::PAGE_PADDING * 2);
+    mainLayout->setContentsMargins(Dimens::PAGE_PADDING, 
+                                   Dimens::PAGE_PADDING, 
+                                   Dimens::PAGE_PADDING, 
+                                   Dimens::PAGE_PADDING);
+    mainLayout->setSpacing(Dimens::PAGE_PADDING);
     
     // 创建各个UI组件
     setupMessageArea();
@@ -502,27 +502,26 @@ void RightPanel::createActionButtons() {
     sendButton->setEnabled(false);
     updateSendButtonStyle(false);
     
+    // 加载原图并转换为白色
     QPixmap sendPixmap(":/images/icon_send.png");
     if (!sendPixmap.isNull()) {
-        sendButton->setIcon(QIcon(sendPixmap));
+        // 创建白色版本的图标
+        QPixmap whitePixmap(sendPixmap.size());
+        whitePixmap.fill(Qt::transparent);
+        
+        QPainter painter(&whitePixmap);
+        painter.setRenderHint(QPainter::Antialiasing);
+        
+        // 方法1：使用 CompositionMode_SourceIn 将图片转换为白色
+        painter.drawPixmap(0, 0, sendPixmap);
+        painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        painter.fillRect(whitePixmap.rect(), Qt::white);
+        painter.end();
+        
+        sendButton->setIcon(QIcon(whitePixmap));
         sendButton->setIconSize(QSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE));
     } else {
         sendButton->setText("➤");
-        sendButton->setStyleSheet(QString(
-            "QPushButton {"
-            "   background-color: %1;"
-            "   color: white;"
-            "   border: none;"
-            "   border-radius: %2px;"
-            "   font-size: %3px;"
-            "}"
-            "QPushButton:hover {"
-            "   background-color: %4;"
-            "}"
-        ).arg(Colors::GRAY_COLOR.name())
-         .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_BIG)
-         .arg(Colors::PRIMARY_COLOR.name()));
     }
     
     connect(editPromptBtn, &QPushButton::clicked, this, &RightPanel::onEditPromptClicked);
@@ -869,23 +868,20 @@ void RightPanel::addUserMessage(const QString& content) {
     layout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING,
                                Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
     layout->setSpacing(Dimens::PAGE_PADDING);
-    // 【修改点1】设置布局整体顶部对齐，确保头像和消息内容顶部对齐
+    
+    // 关键修改：确保布局顶部对齐
     layout->setAlignment(Qt::AlignTop); 
 
     // 用户头像
     QLabel* avatarLabel = new QLabel(messageWidget);
     avatarLabel->setFixedSize(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
-    // 防止头像被拉伸变形
-    avatarLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed); 
+    avatarLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
+    // 重要：设置头像的对齐方式为顶部对齐
+    avatarLabel->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
     
     User currentUser = TokenManager::instance().getUser();
-    if (!currentUser.avatar.isEmpty()) {
-        // 加载头像的逻辑可以复用LeftPanel中的代码
-        // 此处省略具体加载网络图片代码，保持原逻辑或参考LeftPanel::loadAvatar
-        // 如果有网络加载逻辑，请确保加载完成后调用 setPixmap
-    } 
     
-    // 生成默认头像逻辑 (保持原有逻辑)
+    // 生成默认头像逻辑
     QPixmap pixmap(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
     pixmap.fill(Qt::transparent);
     QPainter painter(&pixmap);
@@ -902,9 +898,19 @@ void RightPanel::addUserMessage(const QString& content) {
     painter.drawText(pixmap.rect(), Qt::AlignCenter, initial);
     avatarLabel->setPixmap(pixmap);
 
+    // 消息内容容器 - 使用QWidget包装消息内容，使其可以独立控制对齐
+    QWidget* contentContainer = new QWidget(messageWidget);
+    contentContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    
+    QVBoxLayout* contentContainerLayout = new QVBoxLayout(contentContainer);
+    contentContainerLayout->setContentsMargins(0, 0, 0, 0);
+    contentContainerLayout->setSpacing(0);
+    // 设置内容容器布局为顶部对齐
+    contentContainerLayout->setAlignment(Qt::AlignTop);
+
     // 消息内容
-    QLabel* contentLabel = new QLabel(content, messageWidget);
-    contentLabel->setWordWrap(true); // 允许自动换行
+    QLabel* contentLabel = new QLabel(content, contentContainer);
+    contentLabel->setWordWrap(true);
     contentLabel->setStyleSheet(QString(
         "color: %1;"
         "font-size: %2px;"
@@ -917,24 +923,19 @@ void RightPanel::addUserMessage(const QString& content) {
      .arg(Dimens::SMALL_MARGIN)
      .arg(Dimens::PAGE_PADDING));
     
-    // 【修改点2】移除固定的最大宽度限制，或者设置为一个极大值
-    // 原代码: contentLabel->setMaximumWidth(600); 
-    // 修改后: 不设置最大宽度，或者设置为 16777215 (QWIDGETSIZE_MAX)
     contentLabel->setMaximumWidth(QWIDGETSIZE_MAX); 
-    
-    // 设置尺寸策略，允许水平扩展
     contentLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    contentLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft); // 文本内容顶部对齐
 
-    // 添加头像到布局 (固定大小)
-    layout->addWidget(avatarLabel);
+    // 将消息内容添加到内容容器的布局中
+    contentContainerLayout->addWidget(contentLabel);
+    contentContainerLayout->addStretch(); // 添加弹簧，确保内容靠上
+
+    // 添加头像到主布局
+    layout->addWidget(avatarLabel, 0, Qt::AlignTop); // 显式指定头像顶部对齐
     
-    // 【修改点3】添加消息内容到布局，并设置拉伸因子为1
-    // 这样 contentLabel 会占据除了头像和间距之外的所有剩余空间
-    layout->addWidget(contentLabel, 1); 
-    
-    // 原有的 stretch 可以保留，也可以去掉，因为 contentLabel 已经设置了 stretch factor 为 1
-    // 如果保留，它会推挤右侧可能存在的其他控件，这里为了保险起见保留，或者只依靠上面的 stretch
-    // layout->addStretch(); 
+    // 添加内容容器到主布局，设置拉伸因子为1
+    layout->addWidget(contentContainer, 1);
 
     // 插入到弹簧之前
     messageLayout->insertWidget(messageLayout->count() - 1, messageWidget);

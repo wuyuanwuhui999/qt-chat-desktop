@@ -13,7 +13,10 @@ HomeWindow::HomeWindow(QWidget *parent)
     
     // 创建左右面板
     leftPanel = new LeftPanel(this);
+    leftPanel->setObjectName("leftPanel");  // 添加这一行，方便通过对象名查找
+    
     rightPanel = new RightPanel(this);
+    rightPanel->setObjectName("rightPanel");  // 可选，也可以设置
     
     // 连接左侧面板的新对话按钮信号到右侧面板的清空消息方法
     connect(leftPanel, &LeftPanel::newChatClicked, rightPanel, &RightPanel::clearAllMessages);

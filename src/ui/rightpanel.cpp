@@ -820,6 +820,9 @@ void RightPanel::onWebSocketConnected() {
     messageScrollArea->show();
     logoContainer->hide();
     
+    // 保存当前chatId用于后续判断
+    QString sentChatId = currentChatId;
+    
     // 构建发送消息
     QJsonObject message;
     message["modelId"] = currentModel.id;
@@ -859,6 +862,7 @@ void RightPanel::onWebSocketConnected() {
     updateSendButtonStyle(false);
 }
 
+
 void RightPanel::addUserMessage(const QString& content) {
     QWidget* messageWidget = new QWidget(messageContainer);
     messageWidget->setObjectName(QString("user_msg_%1").arg(++currentMessageId));
@@ -869,18 +873,17 @@ void RightPanel::addUserMessage(const QString& content) {
                                Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
     layout->setSpacing(Dimens::PAGE_PADDING);
     
-    // 关键修改：确保布局顶部对齐
-    layout->setAlignment(Qt::AlignTop); 
-
+    // 修改：设置布局为垂直居中对齐 (Qt::AlignVCenter)
+    layout->setAlignment(Qt::AlignVCenter);
+    
     // 用户头像
     QLabel* avatarLabel = new QLabel(messageWidget);
     avatarLabel->setFixedSize(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
     avatarLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    // 重要：设置头像的对齐方式为顶部对齐
-    avatarLabel->setAlignment(Qt::AlignTop | Qt::AlignHCenter);
+    // 修改：设置头像的对齐方式为垂直居中
+    avatarLabel->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
     
     User currentUser = TokenManager::instance().getUser();
-    
     // 生成默认头像逻辑
     QPixmap pixmap(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
     pixmap.fill(Qt::transparent);
@@ -897,17 +900,16 @@ void RightPanel::addUserMessage(const QString& content) {
     if (initial.isEmpty()) initial = "U";
     painter.drawText(pixmap.rect(), Qt::AlignCenter, initial);
     avatarLabel->setPixmap(pixmap);
-
+    
     // 消息内容容器 - 使用QWidget包装消息内容，使其可以独立控制对齐
     QWidget* contentContainer = new QWidget(messageWidget);
     contentContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    
     QVBoxLayout* contentContainerLayout = new QVBoxLayout(contentContainer);
     contentContainerLayout->setContentsMargins(0, 0, 0, 0);
     contentContainerLayout->setSpacing(0);
-    // 设置内容容器布局为顶部对齐
-    contentContainerLayout->setAlignment(Qt::AlignTop);
-
+    // 修改：设置内容容器布局为垂直居中对齐
+    contentContainerLayout->setAlignment(Qt::AlignVCenter);
+    
     // 消息内容
     QLabel* contentLabel = new QLabel(content, contentContainer);
     contentLabel->setWordWrap(true);
@@ -916,30 +918,29 @@ void RightPanel::addUserMessage(const QString& content) {
         "font-size: %2px;"
         "background-color: %3;"
         "border-radius: %4px;"
-        "padding: %5px;"
     ).arg(Colors::TEXT_COLOR.name())
      .arg(Dimens::FONT_SIZE_NORMAL)
      .arg(Colors::WHITE_COLOR.name())
-     .arg(Dimens::SMALL_MARGIN)
-     .arg(Dimens::PAGE_PADDING));
-    
-    contentLabel->setMaximumWidth(QWIDGETSIZE_MAX); 
+     .arg(Dimens::SMALL_MARGIN));
+    contentLabel->setMaximumWidth(QWIDGETSIZE_MAX);
     contentLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-    contentLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft); // 文本内容顶部对齐
-
+    // 修改：文本内容垂直居中对齐
+    contentLabel->setAlignment(Qt::AlignVCenter | Qt::AlignLeft);
+    
     // 将消息内容添加到内容容器的布局中
     contentContainerLayout->addWidget(contentLabel);
-    contentContainerLayout->addStretch(); // 添加弹簧，确保内容靠上
-
+    // 注意：移除了 addStretch()，以便内容可以在容器中真正居中
+    
     // 添加头像到主布局
-    layout->addWidget(avatarLabel, 0, Qt::AlignTop); // 显式指定头像顶部对齐
+    // 修改：显式指定头像垂直居中对齐
+    layout->addWidget(avatarLabel, 0, Qt::AlignVCenter);
     
     // 添加内容容器到主布局，设置拉伸因子为1
     layout->addWidget(contentContainer, 1);
-
+    
     // 插入到弹簧之前
     messageLayout->insertWidget(messageLayout->count() - 1, messageWidget);
-
+    
     // 滚动到底部
     QTimer::singleShot(100, this, [this]() {
         messageScrollArea->verticalScrollBar()->setValue(
@@ -963,8 +964,6 @@ void RightPanel::addAssistantMessage() {
                                Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
     layout->setSpacing(Dimens::PAGE_PADDING);
     
-    // 【修改点1】设置布局整体顶部对齐，确保头像和消息内容顶部对齐
-    layout->setAlignment(Qt::AlignTop); 
 
     // 助手头像
     QLabel* avatarLabel = new QLabel(messageWidget);
@@ -999,16 +998,10 @@ void RightPanel::addAssistantMessage() {
         "color: %1;"
         "font-size: %2px;"
         "background-color: %3;"
-        "border-radius: %4px;"
-        "padding: %5px;"
     ).arg(Colors::GRAY_COLOR.name())
      .arg(Dimens::FONT_SIZE_NORMAL)
-     .arg(Colors::WHITE_COLOR.name())
-     .arg(Dimens::SMALL_MARGIN)
-     .arg(Dimens::PAGE_PADDING));
-    
-    // 【修改点3】移除最大宽度限制，允许占满剩余空间
-    // thinkLabel->setMaximumWidth(600); 
+     .arg(Colors::WHITE_COLOR.name()));
+
     thinkLabel->setMaximumWidth(QWIDGETSIZE_MAX); 
     thinkLabel->hide();
 
@@ -1019,30 +1012,20 @@ void RightPanel::addAssistantMessage() {
         "color: %1;"
         "font-size: %2px;"
         "background-color: %3;"
-        "border-radius: %4px;"
-        "padding: %5px;"
     ).arg(Colors::TEXT_COLOR.name())
      .arg(Dimens::FONT_SIZE_NORMAL)
-     .arg(Colors::WHITE_COLOR.name())
-     .arg(Dimens::SMALL_MARGIN)
-     .arg(Dimens::PAGE_PADDING));
+     .arg(Colors::WHITE_COLOR.name()));
     
-    // 【修改点4】移除最大宽度限制，允许占满剩余空间
-    // responseLabel->setMaximumWidth(600);
     responseLabel->setMaximumWidth(QWIDGETSIZE_MAX);
 
     contentLayout->addWidget(thinkLabel);
     contentLayout->addWidget(responseLabel);
 
     // 添加头像到布局
-    layout->addWidget(avatarLabel);
+    layout->addWidget(avatarLabel,0,Qt::AlignTop);
     
-    // 【修改点5】添加内容容器到布局，并设置拉伸因子为1
-    // 这样 contentWidget 会占据除了头像和间距之外的所有剩余空间
-    layout->addWidget(contentWidget, 1); 
-    
-    // 原有的 stretch 可以省略，因为 contentWidget 已经设置了 stretch factor
-    
+    layout->addWidget(contentWidget, 1, Qt::AlignTop); 
+        
     messageLayout->insertWidget(messageLayout->count() - 1, messageWidget);
 
     block.thinkLabel = thinkLabel;
@@ -1101,11 +1084,42 @@ void RightPanel::updateCurrentMessage(const QString& content) {
 void RightPanel::onWebSocketDisconnected() {
     qDebug() << "WebSocket disconnected";
     
+    // 保存当前的chatId用于判断
+    QString oldChatId = currentChatId;
+    
     if (isReceivingMessage) {
         isReceivingMessage = false;
         updateSendButtonStyle(!inputEdit->toPlainText().trimmed().isEmpty());
     }
+    
+    // 重置当前消息块
+    currentMessageBlock = MessageBlock();
+    
+    // 获取左侧面板指针（假设HomeWindow中设置了对象名或者可以通过父窗口获取）
+    // 这里需要通过父窗口查找LeftPanel，或者通过信号方式通知HomeWindow
+    QWidget* parent = parentWidget();
+    while (parent) {
+        HomeWindow* homeWindow = qobject_cast<HomeWindow*>(parent);
+        if (homeWindow) {
+            // 通过HomeWindow获取LeftPanel
+            LeftPanel* leftPanel = homeWindow->findChild<LeftPanel*>();
+            if (leftPanel) {
+                // 比较chatId，如果不相同才刷新历史对话
+                if (oldChatId != currentChatId) {
+                    qDebug() << "Chat ID changed from" << oldChatId << "to" << currentChatId 
+                             << "- reloading chat history";
+                    leftPanel->refreshData();
+                } else {
+                    qDebug() << "Chat ID unchanged (" << currentChatId 
+                             << ") - skipping history reload";
+                }
+            }
+            break;
+        }
+        parent = parent->parentWidget();
+    }
 }
+
 
 void RightPanel::onTextMessageReceived(const QString& message) {
     qDebug() << "Received message:" << message.left(100) << "...";
@@ -1115,9 +1129,18 @@ void RightPanel::onTextMessageReceived(const QString& message) {
         addAssistantMessage();
     }
     
+    // 检查是否是完成消息
+    if (message == "[done]" || message == "[completed]") {
+        // 消息完成时，不立即处理，等待WebSocket断开连接后再处理
+        qDebug() << "Message completed, waiting for WebSocket disconnect...";
+        // 这里不重置 currentMessageBlock，等断开连接时再处理
+        return;
+    }
+    
     // 更新消息
     updateCurrentMessage(message);
 }
+
 
 void RightPanel::onWebSocketError(QAbstractSocket::SocketError error) {
     qDebug() << "WebSocket error:" << error << webSocket->errorString();
@@ -1529,13 +1552,9 @@ void RightPanel::loadChatHistory(const ChatHistory& chat) {
             "color: %1;"
             "font-size: %2px;"
             "background-color: %3;"
-            "border-radius: %4px;"
-            "padding: %5px;"
         ).arg(Colors::GRAY_COLOR.name())
          .arg(Dimens::FONT_SIZE_NORMAL)
-         .arg(Colors::WHITE_COLOR.name())
-         .arg(Dimens::SMALL_MARGIN)
-         .arg(Dimens::PAGE_PADDING));
+         .arg(Colors::WHITE_COLOR.name()));
         thinkLabel->setMaximumWidth(QWIDGETSIZE_MAX);
         
         if (!chat.thinkContent.isEmpty()) {
@@ -1552,13 +1571,9 @@ void RightPanel::loadChatHistory(const ChatHistory& chat) {
             "color: %1;"
             "font-size: %2px;"
             "background-color: %3;"
-            "border-radius: %4px;"
-            "padding: %5px;"
         ).arg(Colors::TEXT_COLOR.name())
          .arg(Dimens::FONT_SIZE_NORMAL)
-         .arg(Colors::WHITE_COLOR.name())
-         .arg(Dimens::SMALL_MARGIN)
-         .arg(Dimens::PAGE_PADDING));
+         .arg(Colors::WHITE_COLOR.name()));
         responseLabel->setMaximumWidth(QWIDGETSIZE_MAX);
         responseLabel->setText(chat.responseContent);
 

@@ -1,4 +1,5 @@
 #include "RightPanel.h"
+#include "HomeWindow.h"
 #include "network/NetworkManager.h"
 #include "utils/TokenManager.h"
 #include "config/Constants.h"
@@ -63,6 +64,7 @@ RightPanel::RightPanel(QWidget *parent)
 
 void RightPanel::setupUI() {
     mainLayout = new QVBoxLayout(this);
+    // 修改：设置上下左右外边距统一为 Dimens::PAGE_PADDING
     mainLayout->setContentsMargins(Dimens::PAGE_PADDING, 
                                    Dimens::PAGE_PADDING, 
                                    Dimens::PAGE_PADDING, 
@@ -81,6 +83,7 @@ void RightPanel::setupUI() {
     mainLayout->addWidget(messageScrollArea, 1);  // 消息区域占满剩余空间
     mainLayout->addWidget(bottomContainer, 1);    // 底部容器也设置拉伸因子，与消息区域平分空间
 }
+
 
 void RightPanel::setupMessageArea() {
     // ========== 消息显示区域 ==========
@@ -111,6 +114,7 @@ void RightPanel::setupMessageArea() {
     messageContainer->setStyleSheet("background-color: white;");
     
     messageLayout = new QVBoxLayout(messageContainer);
+    // 修改：消息容器内部不需要边距，因为主布局已经设置了外边距
     messageLayout->setContentsMargins(0, 0, 0, 0);
     messageLayout->setSpacing(Dimens::PAGE_PADDING);
     messageLayout->addStretch();  // 添加弹簧，使消息从底部开始
@@ -179,6 +183,7 @@ void RightPanel::setupInputArea() {
      .arg(Dimens::BIG_BORDER_RADIUS));
     
     containerLayout = new QVBoxLayout(inputContainer);
+    // 修改：输入框容器内部的内边距保持 Dimens::PAGE_PADDING
     containerLayout->setContentsMargins(Dimens::PAGE_PADDING, 
                                         Dimens::PAGE_PADDING, 
                                         Dimens::PAGE_PADDING, 
@@ -543,6 +548,8 @@ QWidget* RightPanel::createBottomContainer() {
 
     // 输入框容器居中
     QHBoxLayout* inputCenterLayout = new QHBoxLayout();
+    // 修改：输入框容器的左右边距由主布局控制，这里设置为0
+    inputCenterLayout->setContentsMargins(0, 0, 0, 0);
     inputCenterLayout->addStretch();
     inputCenterLayout->addWidget(inputContainer);
     inputCenterLayout->addStretch();

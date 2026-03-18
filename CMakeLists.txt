@@ -34,6 +34,8 @@ add_executable(chat
     src/ui/LoginWindow.cpp
     src/ui/HomeWindow.h
     src/ui/HomeWindow.cpp
+    src/ui/DirectoryDialog.h
+    src/ui/DirectoryDialog.cpp
     # 模型类
     src/models/ApiResponse.h
     src/models/ApiResponse.cpp

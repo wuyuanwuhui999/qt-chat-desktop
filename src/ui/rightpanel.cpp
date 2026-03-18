@@ -1,5 +1,7 @@
 #include "RightPanel.h"
 #include "HomeWindow.h"
+#include "DirectoryDialog.h"
+#include <QMessageBox>
 #include "network/NetworkManager.h"
 #include "utils/TokenManager.h"
 #include "config/Constants.h"
@@ -471,12 +473,46 @@ void RightPanel::createFunctionButtons() {
 }
 
 void RightPanel::createActionButtons() {
+    // ========== 左侧按钮组 ==========
+    QHBoxLayout* leftButtonsLayout = new QHBoxLayout();
+    leftButtonsLayout->setSpacing(Dimens::PAGE_PADDING);
+    leftButtonsLayout->setContentsMargins(0, 0, 0, 0);
+    
+    // 上传文档按钮
+    uploadDocBtn = new QPushButton(buttonContainer);
+    uploadDocBtn->setCursor(Qt::PointingHandCursor);
+    uploadDocBtn->setFixedSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE);
+    uploadDocBtn->setToolTip("上传文档");
+    
+    QPixmap uploadPixmap(":/images/icon_upload.png");
+    if (!uploadPixmap.isNull()) {
+        QPixmap transparentPixmap(uploadPixmap.size());
+        transparentPixmap.fill(Qt::transparent);
+        QPainter painter(&transparentPixmap);
+        painter.setOpacity(0.5);
+        painter.drawPixmap(0, 0, uploadPixmap);
+        uploadDocBtn->setIcon(QIcon(transparentPixmap));
+        uploadDocBtn->setIconSize(QSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE));
+    } else {
+        uploadDocBtn->setText("📤");
+    }
+
+    uploadDocBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "   background-color: transparent;"
+        "   border: none;"
+        "}"
+        "QPushButton:hover {"
+        "   opacity: 0.8;"
+        "}"
+    ));
+    
     // 编辑提示词按钮
     editPromptBtn = new QPushButton(buttonContainer);
     editPromptBtn->setCursor(Qt::PointingHandCursor);
     editPromptBtn->setFixedSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE);
+    editPromptBtn->setToolTip("编辑提示词");
     
-    // 设置初始图标为 icon_edit.png (带50%透明度)
     QPixmap editPixmap(":/images/icon_edit.png");
     if (!editPixmap.isNull()) {
         QPixmap transparentPixmap(editPixmap.size());
@@ -500,6 +536,9 @@ void RightPanel::createActionButtons() {
         "}"
     ));
     
+    leftButtonsLayout->addWidget(uploadDocBtn);
+    leftButtonsLayout->addWidget(editPromptBtn);
+    
     // 发送按钮
     sendButton = new QPushButton(buttonContainer);
     sendButton->setCursor(Qt::PointingHandCursor);
@@ -507,17 +546,13 @@ void RightPanel::createActionButtons() {
     sendButton->setEnabled(false);
     updateSendButtonStyle(false);
     
-    // 加载原图并转换为白色
     QPixmap sendPixmap(":/images/icon_send.png");
     if (!sendPixmap.isNull()) {
-        // 创建白色版本的图标
         QPixmap whitePixmap(sendPixmap.size());
         whitePixmap.fill(Qt::transparent);
         
         QPainter painter(&whitePixmap);
         painter.setRenderHint(QPainter::Antialiasing);
-        
-        // 方法1：使用 CompositionMode_SourceIn 将图片转换为白色
         painter.drawPixmap(0, 0, sendPixmap);
         painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
         painter.fillRect(whitePixmap.rect(), Qt::white);
@@ -529,6 +564,17 @@ void RightPanel::createActionButtons() {
         sendButton->setText("➤");
     }
     
+    // 修改按钮布局
+    buttonLayout->addWidget(deepThinkBtn);
+    buttonLayout->addWidget(searchDocBtn);
+    buttonLayout->addWidget(docSelectionBtn);
+    buttonLayout->addStretch();
+    buttonLayout->addLayout(leftButtonsLayout);  // 添加左侧按钮组
+    buttonLayout->addSpacing(Dimens::PAGE_PADDING);
+    buttonLayout->addWidget(sendButton);
+    
+    // 连接信号
+    connect(uploadDocBtn, &QPushButton::clicked, this, &RightPanel::onUploadDocClicked);
     connect(editPromptBtn, &QPushButton::clicked, this, &RightPanel::onEditPromptClicked);
     connect(sendButton, &QPushButton::clicked, this, &RightPanel::onSendClicked);
 }
@@ -1599,6 +1645,22 @@ void RightPanel::loadChatHistory(const ChatHistory& chat) {
             messageScrollArea->verticalScrollBar()->maximum()
         );
     });
+}
+
+void RightPanel::onUploadDocClicked()
+{
+    if (isEditingPrompt) return;
+    
+    // 获取当前租户ID
+    QString tenantId = TokenManager::instance().getValue(Constants::CURRENT_TENANT_ID_KEY).toString();
+    if (tenantId.isEmpty()) {
+        QMessageBox::warning(this, "提示", "无法获取租户信息");
+        return;
+    }
+    
+    // 创建并显示目录对话框
+    DirectoryDialog dialog(tenantId, this);
+    dialog.exec();
 }
 
 RightPanel::~RightPanel() {

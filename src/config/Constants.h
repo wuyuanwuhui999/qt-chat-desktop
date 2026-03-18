@@ -33,6 +33,11 @@ namespace Constants {
         
         // 提示词相关
         const QString GET_DEFAULT_PROMPT_BY_TENANT_ID = "/service/prompt/getDefaultPromptByTenantId";
+
+        const QString GET_DIRECTORY_LIST = "/service/chat/getDirectoryList";
+        const QString CREATE_DIR = "/service/chat/createDir";
+        const QString UPLOAD_DOC = "/service/chat/uploadDoc/%1/%2";  // 需要传入 tenantId 和 directoryId
+
     }
 
     // 默认租户

@@ -91,6 +91,9 @@ private slots:
 
     void onEditPromptClicked();  // 编辑提示词按钮点击
 
+    void onUploadDocClicked();
+
+
 private:
     // UI 设置方法 - 拆分后的方法
     void setupUI();
@@ -187,6 +190,8 @@ private:
     QString savedInputContent;   // 保存的输入框内容
     QString currentTenantId;     // 当前租户ID
     QString currentSystemPrompt; // 当前系统提示词
+
+    QPushButton* uploadDocBtn;
 };
 
 #endif // RIGHTPANEL_H

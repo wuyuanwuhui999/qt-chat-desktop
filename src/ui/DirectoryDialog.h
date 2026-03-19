@@ -58,6 +58,7 @@ private slots:
     void onDirectorySelected();
     void onConfirmUpload();
     void onCancelCreate();
+    void onCloseCreateInput();  // 新增：关闭创建输入框
 
 private:
     void setupUI();
@@ -66,6 +67,7 @@ private:
     void showCreateInput();
     void hideCreateInput();
     void updateConfirmButtonState();
+    void updateCreateInputButtonsStyle();  // 新增：更新创建输入框按钮样式
     
     QString m_tenantId;
     QString m_selectedDirectoryId;
@@ -82,7 +84,8 @@ private:
     QWidget* createInputWidget;
     QHBoxLayout* createInputLayout;
     QLineEdit* dirNameEdit;
-    QPushButton* confirmCreateBtn;
+    QPushButton* confirmCreateBtn;  // 确认按钮（主色调圆形）
+    QPushButton* closeCreateBtn;    // 新增：关闭按钮（灰色圆形）
     
     QButtonGroup* radioGroup;
     QList<DirectoryEntity> directoryList;

@@ -11,6 +11,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QMessageBox>
+#include <QPainter>
 
 DirectoryDialog::DirectoryDialog(const QString& tenantId, QWidget *parent)
     : QDialog(parent)
@@ -32,27 +33,26 @@ DirectoryDialog::~DirectoryDialog()
 void DirectoryDialog::setupUI()
 {
     mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING,
+    mainLayout->setContentsMargins(Dimens::PAGE_PADDING, 0,
                                    Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
     mainLayout->setSpacing(Dimens::PAGE_PADDING);
 
-    // 目录列表
+    // 目录列表 - 移除边框
     directoryListWidget = new QListWidget(this);
-    directoryListWidget->setStyleSheet(QString(
+    directoryListWidget->setFrameShape(QFrame::NoFrame);
+    directoryListWidget->setStyleSheet(
         "QListWidget {"
-        "   border: 1px solid %1;"
-        "   border-radius: %2px;"
         "   outline: none;"
+        "   background-color: transparent;"
         "}"
         "QListWidget::item {"
-        "   border-bottom: 1px solid %1;"
+        "   border-bottom: 1px solid " + Colors::GRAY_COLOR.name() + ";"
         "   padding: 0px;"
         "}"
         "QListWidget::item:last {"
         "   border-bottom: none;"
         "}"
-    ).arg(Colors::GRAY_COLOR.name())
-     .arg(Dimens::SMALL_MARGIN));
+    );
     
     mainLayout->addWidget(directoryListWidget);
 
@@ -105,29 +105,25 @@ void DirectoryDialog::setupUI()
      .arg(Dimens::FONT_SIZE_NORMAL)
      .arg(Colors::PRIMARY_COLOR.name()));
 
-    confirmCreateBtn = new QPushButton("✅", createInputWidget);
+    // 确认按钮（主色调圆形）
+    confirmCreateBtn = new QPushButton(createInputWidget);
     confirmCreateBtn->setFixedSize(Dimens::BTN_HEIGHT, Dimens::BTN_HEIGHT);
     confirmCreateBtn->setCursor(Qt::PointingHandCursor);
-    confirmCreateBtn->setStyleSheet(QString(
-        "QPushButton {"
-        "   background-color: %1;"
-        "   color: white;"
-        "   border: none;"
-        "   border-radius: %2px;"
-        "   font-size: %3px;"
-        "}"
-        "QPushButton:hover {"
-        "   background-color: %4;"
-        "}"
-    ).arg(Colors::PRIMARY_COLOR.name())
-     .arg(Dimens::BTN_HEIGHT / 2)
-     .arg(Dimens::FONT_SIZE_NORMAL)
-     .arg(Colors::PRIMARY_COLOR.lighter(110).name()));
+    
+    // 关闭按钮（灰色圆形）
+    closeCreateBtn = new QPushButton(createInputWidget);
+    closeCreateBtn->setFixedSize(Dimens::BTN_HEIGHT, Dimens::BTN_HEIGHT);
+    closeCreateBtn->setCursor(Qt::PointingHandCursor);
+    
+    // 更新按钮样式
+    updateCreateInputButtonsStyle();
 
     createInputLayout->addWidget(dirNameEdit, 1);
     createInputLayout->addWidget(confirmCreateBtn);
+    createInputLayout->addWidget(closeCreateBtn);
 
     connect(confirmCreateBtn, &QPushButton::clicked, this, &DirectoryDialog::onConfirmCreateDir);
+    connect(closeCreateBtn, &QPushButton::clicked, this, &DirectoryDialog::onCloseCreateInput);
 
     mainLayout->addWidget(createInputWidget);
 
@@ -174,10 +170,60 @@ void DirectoryDialog::setupUI()
 
     buttonLayout->addWidget(confirmBtn);
     buttonLayout->addWidget(cancelBtn);
+    
+    // 创建目录按钮与底部按钮的间距设置为 Dimens::PAGE_PADDING
+    mainLayout->addSpacing(Dimens::PAGE_PADDING);
     mainLayout->addLayout(buttonLayout);
 
     connect(confirmBtn, &QPushButton::clicked, this, &DirectoryDialog::onConfirmUpload);
     connect(cancelBtn, &QPushButton::clicked, this, &DirectoryDialog::reject);
+}
+
+void DirectoryDialog::updateCreateInputButtonsStyle()
+{
+    // 确认按钮样式（主色调圆形，带图标）
+    QPixmap surePixmap(":/images/icon_sure.png");
+    if (!surePixmap.isNull()) {
+        QPixmap scaledPixmap = surePixmap.scaled(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE,
+                                                 Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        confirmCreateBtn->setIcon(QIcon(scaledPixmap));
+        confirmCreateBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
+    }
+    
+    confirmCreateBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "   background-color: %1;"
+        "   border: none;"
+        "   border-radius: %2px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: %3;"
+        "}"
+    ).arg(Colors::PRIMARY_COLOR.name())
+     .arg(Dimens::BTN_HEIGHT / 2)
+     .arg(Colors::PRIMARY_COLOR.lighter(110).name()));
+
+    // 关闭按钮样式（灰色圆形，带图标）
+    QPixmap closePixmap(":/images/icon_close.png");
+    if (!closePixmap.isNull()) {
+        QPixmap scaledPixmap = closePixmap.scaled(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE,
+                                                  Qt::KeepAspectRatio, Qt::SmoothTransformation);
+        closeCreateBtn->setIcon(QIcon(scaledPixmap));
+        closeCreateBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
+    }
+    
+    closeCreateBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "   background-color: %1;"
+        "   border: none;"
+        "   border-radius: %2px;"
+        "}"
+        "QPushButton:hover {"
+        "   background-color: %3;"
+        "}"
+    ).arg(Colors::GRAY_COLOR.name())
+     .arg(Dimens::BTN_HEIGHT / 2)
+     .arg(Colors::GRAY_COLOR.darker(110).name()));
 }
 
 void DirectoryDialog::loadDirectoryList()
@@ -298,6 +344,12 @@ void DirectoryDialog::onConfirmCreateDir()
             QMessageBox::warning(this, "提示", "网络错误：" + error);
         }
     );
+}
+
+void DirectoryDialog::onCloseCreateInput()
+{
+    hideCreateInput();
+    dirNameEdit->clear();
 }
 
 void DirectoryDialog::onConfirmUpload()

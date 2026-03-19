@@ -1,0 +1,11 @@
+这是基于c++语言的qt桌面级AI智能体项目，按照要求帮我修改
+
+请遵守开发规范
+1、应用中，所有的间距都统一使用theme/Dimens.h里面的PAGE_PADDING，包括图标与图标的间距，按钮和按钮的间距，图片和文字的间距，按钮和文字的间距，布局和布局之间的间距，文字到边边的距离，以及每条数据上下的间隔,所有的padding和margin,统一使用Dimens::PAGE_PADDING
+2、应用的主色调是theme/Colors.h里面的PRIMARY_COLOR，激活状态的按钮使用Colors::PRIMARY_COLOR颜色，禁用状态的按钮使用Colors::GRAY_COLOR
+3、所有按钮高度统一使用Dimens::BTN_HEIGHT，统一使用圆角，圆角大小Dimens::BTN_HEIGHT/2，单行文字的搜索框和输入框高度统一设置Dimens::INPUT_HEIGHT，圆角大小为Dimens::INPUT_HEIGHT/2
+4、小图标使用Dimens::SMALL_ICON_SIZE，中等图标使用Dimens::MIDDLE_ICON_SIZE
+3、后端所有接口返回格式统一使用ApiResponse格式，ApiResponse中的data是后端返回的数据，ApiResponse里面的total是是总条数，只有分页加载的接口才返回total，其他接口返回的total是null
+4、接口地址统一放到config/Constants.h里面，所有的对象模型放到models目录下
+5、ui相关的组件和窗口放到ui目录下
+6、修改之后不用输出完整的文件代码，只要输出完整的方法体

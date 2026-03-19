@@ -369,22 +369,30 @@ void RightPanel::setupButtonArea() {
     buttonLayout->setContentsMargins(0, 0, 0, 0);
     buttonLayout->setSpacing(Dimens::PAGE_PADDING);
     
-    // 创建各个功能按钮
-    createFunctionButtons();
+    // 创建左侧按钮组（深度思考、查询文档、选择文档）
+    QHBoxLayout* leftButtonsLayout = new QHBoxLayout();
+    leftButtonsLayout->setSpacing(Dimens::PAGE_PADDING);
+    leftButtonsLayout->setContentsMargins(0, 0, 0, 0);
     
-    // 创建编辑和发送按钮
-    createActionButtons();
+    // 创建功能按钮
+    createFunctionButtons(leftButtonsLayout);
     
-    buttonLayout->addWidget(deepThinkBtn);
-    buttonLayout->addWidget(searchDocBtn);
-    buttonLayout->addWidget(docSelectionBtn);
+    // 创建右侧按钮组（上传、编辑、发送）
+    QHBoxLayout* rightButtonsLayout = new QHBoxLayout();
+    rightButtonsLayout->setSpacing(Dimens::PAGE_PADDING);
+    rightButtonsLayout->setContentsMargins(0, 0, 0, 0);
+    
+    // 创建操作按钮
+    createActionButtons(rightButtonsLayout);
+    
+    // 添加到主布局：左侧按钮组 | 弹簧 | 右侧按钮组
+    buttonLayout->addLayout(leftButtonsLayout);
     buttonLayout->addStretch();
-    buttonLayout->addWidget(editPromptBtn);
-    buttonLayout->addSpacing(Dimens::PAGE_PADDING);
-    buttonLayout->addWidget(sendButton);
+    buttonLayout->addLayout(rightButtonsLayout);
 }
 
-void RightPanel::createFunctionButtons() {
+
+void RightPanel::createFunctionButtons(QHBoxLayout* layout) {
     // 深度思考按钮
     deepThinkBtn = new QPushButton("深度思考", buttonContainer);
     deepThinkBtn->setCursor(Qt::PointingHandCursor);
@@ -467,17 +475,16 @@ void RightPanel::createFunctionButtons() {
      .arg(Dimens::PAGE_PADDING)
      .arg(Colors::PRIMARY_COLOR.name()));
     
+    layout->addWidget(deepThinkBtn);
+    layout->addWidget(searchDocBtn);
+    layout->addWidget(docSelectionBtn);
+    
     connect(deepThinkBtn, &QPushButton::toggled, this, &RightPanel::onDeepThinkToggled);
     connect(searchDocBtn, &QPushButton::toggled, this, &RightPanel::onSearchDocToggled);
     connect(docSelectionBtn, &QPushButton::toggled, this, &RightPanel::onDocSelectionToggled);
 }
 
-void RightPanel::createActionButtons() {
-    // ========== 左侧按钮组 ==========
-    QHBoxLayout* leftButtonsLayout = new QHBoxLayout();
-    leftButtonsLayout->setSpacing(Dimens::PAGE_PADDING);
-    leftButtonsLayout->setContentsMargins(0, 0, 0, 0);
-    
+void RightPanel::createActionButtons(QHBoxLayout* layout) {
     // 上传文档按钮
     uploadDocBtn = new QPushButton(buttonContainer);
     uploadDocBtn->setCursor(Qt::PointingHandCursor);
@@ -536,9 +543,6 @@ void RightPanel::createActionButtons() {
         "}"
     ));
     
-    leftButtonsLayout->addWidget(uploadDocBtn);
-    leftButtonsLayout->addWidget(editPromptBtn);
-    
     // 发送按钮
     sendButton = new QPushButton(buttonContainer);
     sendButton->setCursor(Qt::PointingHandCursor);
@@ -564,14 +568,10 @@ void RightPanel::createActionButtons() {
         sendButton->setText("➤");
     }
     
-    // 修改按钮布局
-    buttonLayout->addWidget(deepThinkBtn);
-    buttonLayout->addWidget(searchDocBtn);
-    buttonLayout->addWidget(docSelectionBtn);
-    buttonLayout->addStretch();
-    buttonLayout->addLayout(leftButtonsLayout);  // 添加左侧按钮组
-    buttonLayout->addSpacing(Dimens::PAGE_PADDING);
-    buttonLayout->addWidget(sendButton);
+    // 将按钮添加到右侧布局
+    layout->addWidget(uploadDocBtn);
+    layout->addWidget(editPromptBtn);
+    layout->addWidget(sendButton);
     
     // 连接信号
     connect(uploadDocBtn, &QPushButton::clicked, this, &RightPanel::onUploadDocClicked);

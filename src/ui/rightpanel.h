@@ -104,8 +104,8 @@ private:
     QWidget* createTopButtonArea();
     void setupModelSelection();
     void setupButtonArea();
-    void createFunctionButtons();
-    void createActionButtons();
+    void createFunctionButtons(QHBoxLayout* layout);
+    void createActionButtons(QHBoxLayout* layout);
     QWidget* createBottomContainer();
     
     // 原有方法

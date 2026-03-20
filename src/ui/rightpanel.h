@@ -1,4 +1,3 @@
-// RightPanel.h
 #ifndef RIGHTPANEL_H
 #define RIGHTPANEL_H
 

@@ -66,8 +66,8 @@ RightPanel::RightPanel(QWidget *parent)
 
 void RightPanel::setupUI() {
     mainLayout = new QVBoxLayout(this);
-    // 修改：设置上下左右外边距统一为 Dimens::PAGE_PADDING
-    mainLayout->setContentsMargins(Dimens::PAGE_PADDING, 
+    // 统一使用 PAGE_PADDING 作为外边距
+    mainLayout->setContentsMargins(Dimens::PAGE_PADDING/2, 
                                    Dimens::PAGE_PADDING, 
                                    Dimens::PAGE_PADDING, 
                                    Dimens::PAGE_PADDING);
@@ -81,11 +81,10 @@ void RightPanel::setupUI() {
     // 创建底部容器
     QWidget* bottomContainer = createBottomContainer();
     
-    // 添加到主布局
-    mainLayout->addWidget(messageScrollArea, 1);  // 消息区域占满剩余空间
-    mainLayout->addWidget(bottomContainer, 1);    // 底部容器也设置拉伸因子，与消息区域平分空间
+    // 添加到主布局 - 移除 stretch，让内容自然排列
+    mainLayout->addWidget(messageScrollArea);
+    mainLayout->addWidget(bottomContainer);
 }
-
 
 void RightPanel::setupMessageArea() {
     // ========== 消息显示区域 ==========
@@ -116,10 +115,13 @@ void RightPanel::setupMessageArea() {
     messageContainer->setStyleSheet("background-color: white;");
     
     messageLayout = new QVBoxLayout(messageContainer);
-    // 修改：消息容器内部不需要边距，因为主布局已经设置了外边距
-    messageLayout->setContentsMargins(0, 0, 0, 0);
+    // 消息容器内部边距统一使用 PAGE_PADDING
+    messageLayout->setContentsMargins(Dimens::PAGE_PADDING, 
+                                      Dimens::PAGE_PADDING, 
+                                      Dimens::PAGE_PADDING, 
+                                      Dimens::PAGE_PADDING);
     messageLayout->setSpacing(Dimens::PAGE_PADDING);
-    messageLayout->addStretch();  // 添加弹簧，使消息从底部开始
+    messageLayout->addStretch();  // 添加弹簧，使消息从顶部开始
     
     messageScrollArea->setWidget(messageContainer);
 }
@@ -130,7 +132,7 @@ void RightPanel::setupLogoArea() {
     logoContainer->setStyleSheet("background-color: transparent;");
     
     QVBoxLayout* logoContainerLayout = new QVBoxLayout(logoContainer);
-    logoContainerLayout->setContentsMargins(0, 0, 0, 0);
+    logoContainerLayout->setContentsMargins(0, Dimens::PAGE_PADDING, 0, Dimens::PAGE_PADDING);
     logoContainerLayout->setSpacing(Dimens::PAGE_PADDING);
     
     QHBoxLayout* logoLayout = new QHBoxLayout();
@@ -257,6 +259,7 @@ QWidget* RightPanel::createTopButtonArea() {
     
     QHBoxLayout* topButtonLayout = new QHBoxLayout(topButtonContainer);
     topButtonLayout->setContentsMargins(0, 0, 0, 0);
+    // 按钮之间间距统一使用 PAGE_PADDING
     topButtonLayout->setSpacing(Dimens::PAGE_PADDING);
     
     // 创建模型选择区域
@@ -304,6 +307,7 @@ void RightPanel::setupModelSelection() {
     
     modelLayout = new QHBoxLayout(modelContainer);
     modelLayout->setContentsMargins(0, 0, 0, 0);
+    // 模型名称和箭头按钮之间的间距统一使用 SMALL_MARGIN
     modelLayout->setSpacing(Dimens::SMALL_MARGIN);
     
     modelNameBtn = new QPushButton("加载模型中...", modelContainer);
@@ -367,6 +371,7 @@ void RightPanel::setupButtonArea() {
     
     buttonLayout = new QHBoxLayout(buttonContainer);
     buttonLayout->setContentsMargins(0, 0, 0, 0);
+    // 按钮之间间距统一使用 PAGE_PADDING
     buttonLayout->setSpacing(Dimens::PAGE_PADDING);
     
     // 创建左侧按钮组（深度思考、查询文档、选择文档）
@@ -390,7 +395,6 @@ void RightPanel::setupButtonArea() {
     buttonLayout->addStretch();
     buttonLayout->addLayout(rightButtonsLayout);
 }
-
 
 void RightPanel::createFunctionButtons(QHBoxLayout* layout) {
     // 深度思考按钮
@@ -475,6 +479,7 @@ void RightPanel::createFunctionButtons(QHBoxLayout* layout) {
      .arg(Dimens::PAGE_PADDING)
      .arg(Colors::PRIMARY_COLOR.name()));
     
+    // 按钮之间的间距由外部 layout 的 spacing 控制
     layout->addWidget(deepThinkBtn);
     layout->addWidget(searchDocBtn);
     layout->addWidget(docSelectionBtn);
@@ -513,6 +518,7 @@ void RightPanel::createActionButtons(QHBoxLayout* layout) {
         "   opacity: 0.8;"
         "}"
     ));
+    uploadDocBtn->setEnabled(true);  // 确保初始状态为启用
     
     // 编辑提示词按钮
     editPromptBtn = new QPushButton(buttonContainer);
@@ -568,7 +574,7 @@ void RightPanel::createActionButtons(QHBoxLayout* layout) {
         sendButton->setText("➤");
     }
     
-    // 将按钮添加到右侧布局
+    // 按钮之间的间距由外部 layout 的 spacing 控制
     layout->addWidget(uploadDocBtn);
     layout->addWidget(editPromptBtn);
     layout->addWidget(sendButton);
@@ -583,10 +589,11 @@ QWidget* RightPanel::createBottomContainer() {
     // ========== 底部容器（包含logoContainer和inputContainer）==========
     QWidget* bottomContainer = new QWidget(this);
     QVBoxLayout* bottomLayout = new QVBoxLayout(bottomContainer);
-    bottomLayout->setContentsMargins(0, 0, 0, 0);
-    bottomLayout->setSpacing(Dimens::PAGE_PADDING * 2);
+    // 底部容器内部边距统一使用 PAGE_PADDING
+    bottomLayout->setContentsMargins(0, Dimens::PAGE_PADDING, 0, Dimens::PAGE_PADDING);
+    bottomLayout->setSpacing(Dimens::PAGE_PADDING);
 
-    // 添加顶部拉伸，使logoContainer垂直居中
+    // 添加顶部弹性空间，使logoContainer垂直居中
     bottomLayout->addStretch();
 
     // logo容器
@@ -594,14 +601,14 @@ QWidget* RightPanel::createBottomContainer() {
 
     // 输入框容器居中
     QHBoxLayout* inputCenterLayout = new QHBoxLayout();
-    // 修改：输入框容器的左右边距由主布局控制，这里设置为0
     inputCenterLayout->setContentsMargins(0, 0, 0, 0);
+    inputCenterLayout->setSpacing(0);
     inputCenterLayout->addStretch();
     inputCenterLayout->addWidget(inputContainer);
     inputCenterLayout->addStretch();
     bottomLayout->addLayout(inputCenterLayout);
 
-    // 添加底部拉伸，与顶部拉伸配合实现垂直居中
+    // 添加底部弹性空间，与顶部配合实现垂直居中
     bottomLayout->addStretch();
     
     return bottomContainer;
@@ -695,7 +702,6 @@ void RightPanel::enterEditMode() {
     inputEdit->setPlainText(currentSystemPrompt);
     
     // 不添加边框，保持无边框样式
-    // 移除添加边框的代码
     
     // 切换图标为退出编辑模式
     QPixmap exitEditPixmap(":/images/icon_exit_edit.png");
@@ -717,6 +723,20 @@ void RightPanel::enterEditMode() {
     modelContainer->setEnabled(false);
     languageBtn->setEnabled(false);
     sendButton->setEnabled(false);
+    
+    // 【新增】设置上传文档按钮为半透明且禁用
+    QPixmap uploadPixmap(":/images/icon_upload.png");
+    if (!uploadPixmap.isNull()) {
+        QPixmap transparentPixmap(uploadPixmap.size());
+        transparentPixmap.fill(Qt::transparent);
+        QPainter painter(&transparentPixmap);
+        painter.setOpacity(0.5);
+        painter.drawPixmap(0, 0, uploadPixmap);
+        uploadDocBtn->setIcon(QIcon(transparentPixmap));
+        uploadDocBtn->setIconSize(QSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE));
+    }
+    uploadDocBtn->setEnabled(false);
+    uploadDocBtn->setCursor(Qt::ArrowCursor);
 }
 
 void RightPanel::exitEditMode() {
@@ -735,7 +755,6 @@ void RightPanel::exitEditMode() {
     savedInputContent.clear();
     
     // 不需要恢复边框，因为本来就没有边框
-    // 移除恢复边框的代码
     
     // 切换回编辑图标
     QPixmap editPixmap(":/images/icon_edit.png");
@@ -757,6 +776,20 @@ void RightPanel::exitEditMode() {
     modelContainer->setEnabled(true);
     languageBtn->setEnabled(true);
     sendButton->setEnabled(!inputEdit->toPlainText().trimmed().isEmpty());
+    
+    // 【新增】恢复上传文档按钮为正常状态
+    QPixmap uploadPixmap(":/images/icon_upload.png");
+    if (!uploadPixmap.isNull()) {
+        QPixmap transparentPixmap(uploadPixmap.size());
+        transparentPixmap.fill(Qt::transparent);
+        QPainter painter(&transparentPixmap);
+        painter.setOpacity(0.5);
+        painter.drawPixmap(0, 0, uploadPixmap);
+        uploadDocBtn->setIcon(QIcon(transparentPixmap));
+        uploadDocBtn->setIconSize(QSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE));
+        uploadDocBtn->setEnabled(true);
+        uploadDocBtn->setCursor(Qt::PointingHandCursor);
+    }
 }
 
 void RightPanel::updateSendButtonStyle(bool hasText) {
@@ -915,25 +948,24 @@ void RightPanel::onWebSocketConnected() {
     updateSendButtonStyle(false);
 }
 
-
 void RightPanel::addUserMessage(const QString& content) {
     QWidget* messageWidget = new QWidget(messageContainer);
     messageWidget->setObjectName(QString("user_msg_%1").arg(++currentMessageId));
     
     // 创建水平布局
     QHBoxLayout* layout = new QHBoxLayout(messageWidget);
+    // 消息项内部边距统一使用 PAGE_PADDING
     layout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING,
                                Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
     layout->setSpacing(Dimens::PAGE_PADDING);
     
-    // 修改：设置布局为垂直居中对齐 (Qt::AlignVCenter)
+    // 设置布局为垂直居中对齐
     layout->setAlignment(Qt::AlignVCenter);
     
     // 用户头像
     QLabel* avatarLabel = new QLabel(messageWidget);
     avatarLabel->setFixedSize(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
     avatarLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
-    // 修改：设置头像的对齐方式为垂直居中
     avatarLabel->setAlignment(Qt::AlignVCenter | Qt::AlignHCenter);
     
     User currentUser = TokenManager::instance().getUser();
@@ -954,13 +986,12 @@ void RightPanel::addUserMessage(const QString& content) {
     painter.drawText(pixmap.rect(), Qt::AlignCenter, initial);
     avatarLabel->setPixmap(pixmap);
     
-    // 消息内容容器 - 使用QWidget包装消息内容，使其可以独立控制对齐
+    // 消息内容容器
     QWidget* contentContainer = new QWidget(messageWidget);
     contentContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     QVBoxLayout* contentContainerLayout = new QVBoxLayout(contentContainer);
     contentContainerLayout->setContentsMargins(0, 0, 0, 0);
     contentContainerLayout->setSpacing(0);
-    // 修改：设置内容容器布局为垂直居中对齐
     contentContainerLayout->setAlignment(Qt::AlignVCenter);
     
     // 消息内容
@@ -977,18 +1008,11 @@ void RightPanel::addUserMessage(const QString& content) {
      .arg(Dimens::SMALL_MARGIN));
     contentLabel->setMaximumWidth(QWIDGETSIZE_MAX);
     contentLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
-    // 修改：文本内容垂直居中对齐
     contentLabel->setAlignment(Qt::AlignVCenter | Qt::AlignLeft);
     
-    // 将消息内容添加到内容容器的布局中
     contentContainerLayout->addWidget(contentLabel);
-    // 注意：移除了 addStretch()，以便内容可以在容器中真正居中
     
-    // 添加头像到主布局
-    // 修改：显式指定头像垂直居中对齐
     layout->addWidget(avatarLabel, 0, Qt::AlignVCenter);
-    
-    // 添加内容容器到主布局，设置拉伸因子为1
     layout->addWidget(contentContainer, 1);
     
     // 插入到弹簧之前
@@ -1013,15 +1037,15 @@ void RightPanel::addAssistantMessage() {
     messageWidget->setObjectName(QString("assistant_msg_%1").arg(block.id));
 
     QHBoxLayout* layout = new QHBoxLayout(messageWidget);
+    // 消息项内部边距统一使用 PAGE_PADDING
     layout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING,
                                Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
     layout->setSpacing(Dimens::PAGE_PADDING);
-    
+    layout->setAlignment(Qt::AlignTop);
 
     // 助手头像
     QLabel* avatarLabel = new QLabel(messageWidget);
     avatarLabel->setFixedSize(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
-    // 【修改点2】防止头像被拉伸变形
     avatarLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
 
     QPixmap pixmap(Dimens::SMALL_AVATAR, Dimens::SMALL_AVATAR);
@@ -1054,7 +1078,6 @@ void RightPanel::addAssistantMessage() {
     ).arg(Colors::GRAY_COLOR.name())
      .arg(Dimens::FONT_SIZE_NORMAL)
      .arg(Colors::WHITE_COLOR.name()));
-
     thinkLabel->setMaximumWidth(QWIDGETSIZE_MAX); 
     thinkLabel->hide();
 
@@ -1068,16 +1091,13 @@ void RightPanel::addAssistantMessage() {
     ).arg(Colors::TEXT_COLOR.name())
      .arg(Dimens::FONT_SIZE_NORMAL)
      .arg(Colors::WHITE_COLOR.name()));
-    
     responseLabel->setMaximumWidth(QWIDGETSIZE_MAX);
 
     contentLayout->addWidget(thinkLabel);
     contentLayout->addWidget(responseLabel);
 
-    // 添加头像到布局
-    layout->addWidget(avatarLabel,0,Qt::AlignTop);
-    
-    layout->addWidget(contentWidget, 1, Qt::AlignTop); 
+    layout->addWidget(avatarLabel, 0, Qt::AlignTop);
+    layout->addWidget(contentWidget, 1, Qt::AlignTop);
         
     messageLayout->insertWidget(messageLayout->count() - 1, messageWidget);
 
@@ -1649,7 +1669,11 @@ void RightPanel::loadChatHistory(const ChatHistory& chat) {
 
 void RightPanel::onUploadDocClicked()
 {
-    if (isEditingPrompt) return;
+    // 编辑模式下不允许上传文档
+    if (isEditingPrompt) {
+        qDebug() << "Cannot upload document while editing prompt";
+        return;
+    }
     
     // 获取当前租户ID
     QString tenantId = TokenManager::instance().getValue(Constants::CURRENT_TENANT_ID_KEY).toString();

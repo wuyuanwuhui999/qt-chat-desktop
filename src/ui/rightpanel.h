@@ -191,6 +191,10 @@ private:
     QString currentSystemPrompt; // 当前系统提示词
 
     QPushButton* uploadDocBtn;
+
+    QStringList m_selectedDocumentIds;  // 选中的文档ID列表
+    void updateDocumentSelectionBadge();  // 更新文档选择角标
+
 };
 
 #endif // RIGHTPANEL_H

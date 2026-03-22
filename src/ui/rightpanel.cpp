@@ -1,6 +1,7 @@
 #include "RightPanel.h"
 #include "HomeWindow.h"
 #include "DirectoryDialog.h"
+#include "DocumentDialog.h"  // 添加这一行
 #include <QMessageBox>
 #include "network/NetworkManager.h"
 #include "utils/TokenManager.h"
@@ -902,48 +903,43 @@ void RightPanel::connectWebSocket() {
 void RightPanel::onWebSocketConnected() {
     qDebug() << "WebSocket connected successfully";
     
-    // 显示消息区域，隐藏logo
     messageScrollArea->show();
     logoContainer->hide();
     
-    // 保存当前chatId用于后续判断
     QString sentChatId = currentChatId;
     
-    // 构建发送消息
     QJsonObject message;
     message["modelId"] = currentModel.id;
     message["chatId"] = currentChatId;
-    
-    // 使用当前的系统提示词
     message["systemPrompt"] = currentSystemPrompt;
-    
     message["type"] = isSearchDocSelected ? "document" : "";
-    message["docIds"] = QJsonArray();  // 暂时为空数组
+    
+    // 添加选中的文档ID列表
+    QJsonArray docIdsArray;
+    for (const QString& docId : m_selectedDocumentIds) {
+        docIdsArray.append(docId);
+    }
+    message["docIds"] = docIdsArray;
     
     QString inputValue = inputEdit->toPlainText().trimmed();
     message["prompt"] = inputValue;
     message["showThink"] = isDeepThinkSelected;
     
-    // 获取当前租户ID
     QString tenantId = TokenManager::instance().getValue(Constants::CURRENT_TENANT_ID_KEY).toString();
     message["tenantId"] = tenantId;
-    
     message["language"] = currentLanguage;
     
     QJsonDocument doc(message);
     QString messageStr = doc.toJson(QJsonDocument::Compact);
     
-    qDebug() << "Sending message:" << messageStr;
+    qDebug() << "Sending message with" << m_selectedDocumentIds.size() << "documents";
     webSocket->sendTextMessage(messageStr);
     
-    // 在界面上显示用户消息
     addUserMessage(inputValue);
     
-    // 清空输入框
     inputEdit->clear();
     onInputTextChanged();
     
-    // 开始接收消息，发送按钮变灰
     isReceivingMessage = true;
     updateSendButtonStyle(false);
 }
@@ -1424,13 +1420,50 @@ void RightPanel::onSearchDocToggled() {
     updateButtonsStyle();
 }
 
-void RightPanel::onDocSelectionToggled() {
+void RightPanel::onDocSelectionToggled()
+{
     if (isEditingPrompt) {
         docSelectionBtn->setChecked(!docSelectionBtn->isChecked());
         return;
     }
     
     qDebug() << "Doc selection toggled:" << docSelectionBtn->isChecked();
+    
+    // 当按钮被选中（点击）时，弹出文档选择对话框
+    if (docSelectionBtn->isChecked()) {
+        // 获取当前租户ID
+        QString tenantId = TokenManager::instance().getValue(Constants::CURRENT_TENANT_ID_KEY).toString();
+        if (tenantId.isEmpty()) {
+            QMessageBox::warning(this, "提示", "无法获取租户信息");
+            docSelectionBtn->setChecked(false);
+            return;
+        }
+        
+        // 创建并显示文档选择对话框
+        DocumentDialog dialog(tenantId, this);
+        if (dialog.exec() == QDialog::Accepted) {
+            // 获取选中的文档ID列表
+            m_selectedDocumentIds = dialog.getSelectedDocumentIds();
+            
+            // 更新按钮角标显示
+            updateDocumentSelectionBadge();
+            
+            qDebug() << "Selected documents:" << m_selectedDocumentIds.size();
+            
+            // 如果有选中的文档，保持按钮为选中状态
+            if (m_selectedDocumentIds.isEmpty()) {
+                docSelectionBtn->setChecked(false);
+            }
+        } else {
+            // 用户取消选择，取消按钮选中状态
+            docSelectionBtn->setChecked(false);
+        }
+    } else {
+        // 按钮被取消选中时，清空选中的文档
+        m_selectedDocumentIds.clear();
+        updateDocumentSelectionBadge();
+        qDebug() << "Cleared selected documents";
+    }
 }
 
 void RightPanel::onEditPromptClicked() {
@@ -1682,9 +1715,68 @@ void RightPanel::onUploadDocClicked()
         return;
     }
     
-    // 创建并显示目录对话框
-    DirectoryDialog dialog(tenantId, this);
-    dialog.exec();
+    // 创建并显示文档选择对话框
+    DocumentDialog dialog(tenantId, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        // 获取选中的文档ID列表
+        m_selectedDocumentIds = dialog.getSelectedDocumentIds();
+        
+        // 更新按钮角标显示
+        updateDocumentSelectionBadge();
+        
+        qDebug() << "Selected documents:" << m_selectedDocumentIds.size();
+    }
+}
+
+void RightPanel::updateDocumentSelectionBadge()
+{
+    int count = m_selectedDocumentIds.size();
+    
+    if (count > 0 && uploadDocBtn) {
+        // 创建带角标的图标
+        QPixmap originalPixmap(":/images/icon_upload.png");
+        if (!originalPixmap.isNull()) {
+            QPixmap badgePixmap(originalPixmap.size());
+            badgePixmap.fill(Qt::transparent);
+            
+            QPainter painter(&badgePixmap);
+            painter.setRenderHint(QPainter::Antialiasing);
+            painter.drawPixmap(0, 0, originalPixmap);
+            
+            // 绘制圆形背景
+            int radius = Dimens::SMALL_ICON_SIZE / 3;
+            int centerX = Dimens::SMALL_ICON_SIZE - radius;
+            int centerY = radius;
+            
+            QPainterPath path;
+            path.addEllipse(centerX - radius, centerY - radius, radius * 2, radius * 2);
+            painter.fillPath(path, Colors::PRIMARY_COLOR);
+            
+            // 绘制数字
+            painter.setPen(Qt::white);
+            QFont font;
+            font.setPixelSize(radius);
+            painter.setFont(font);
+            QString text = QString::number(count);
+            QRect textRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
+            painter.drawText(textRect, Qt::AlignCenter, text);
+            
+            uploadDocBtn->setIcon(QIcon(badgePixmap));
+            uploadDocBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
+        }
+    } else if (uploadDocBtn) {
+        // 恢复原始图标
+        QPixmap uploadPixmap(":/images/icon_upload.png");
+        if (!uploadPixmap.isNull()) {
+            QPixmap transparentPixmap(uploadPixmap.size());
+            transparentPixmap.fill(Qt::transparent);
+            QPainter painter(&transparentPixmap);
+            painter.setOpacity(0.5);
+            painter.drawPixmap(0, 0, uploadPixmap);
+            uploadDocBtn->setIcon(QIcon(transparentPixmap));
+            uploadDocBtn->setIconSize(QSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE));
+        }
+    }
 }
 
 RightPanel::~RightPanel() {

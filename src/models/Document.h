@@ -2,8 +2,8 @@
 #define DOCUMENT_H
 
 #include <QString>
-#include <QDateTime>
 #include <QJsonObject>
+#include <QDateTime>
 
 class Document {
 public:
@@ -16,8 +16,8 @@ public:
     QString name;
     QString ext;
     QString userId;
-    QDateTime createTime;
-    QDateTime updateTime;
+    QString createTime;
+    QString updateTime;
     
     static Document fromJson(const QJsonObject& json);
     QJsonObject toJson() const;

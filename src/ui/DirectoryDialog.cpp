@@ -4,14 +4,13 @@
 #include "config/Constants.h"
 #include <QJsonArray>
 #include <QListWidgetItem>
-#include <QFileDialog>
 #include <QHttpMultiPart>
 #include <QHttpPart>
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QMessageBox>
 #include <QPainter>
+#include <QDebug>
 
 DirectoryDialog::DirectoryDialog(const QString& tenantId, QWidget *parent)
     : QDialog(parent)
@@ -37,7 +36,7 @@ void DirectoryDialog::setupUI()
                                    Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
     mainLayout->setSpacing(Dimens::PAGE_PADDING);
 
-    // 目录列表 - 移除边框
+    // 目录列表
     directoryListWidget = new QListWidget(this);
     directoryListWidget->setFrameShape(QFrame::NoFrame);
     directoryListWidget->setStyleSheet(
@@ -105,17 +104,16 @@ void DirectoryDialog::setupUI()
      .arg(Dimens::FONT_SIZE_NORMAL)
      .arg(Colors::PRIMARY_COLOR.name()));
 
-    // 确认按钮（主色调圆形）
+    // 确认按钮
     confirmCreateBtn = new QPushButton(createInputWidget);
     confirmCreateBtn->setFixedSize(Dimens::BTN_HEIGHT, Dimens::BTN_HEIGHT);
     confirmCreateBtn->setCursor(Qt::PointingHandCursor);
     
-    // 关闭按钮（灰色圆形）
+    // 关闭按钮
     closeCreateBtn = new QPushButton(createInputWidget);
     closeCreateBtn->setFixedSize(Dimens::BTN_HEIGHT, Dimens::BTN_HEIGHT);
     closeCreateBtn->setCursor(Qt::PointingHandCursor);
     
-    // 更新按钮样式
     updateCreateInputButtonsStyle();
 
     createInputLayout->addWidget(dirNameEdit, 1);
@@ -171,7 +169,6 @@ void DirectoryDialog::setupUI()
     buttonLayout->addWidget(confirmBtn);
     buttonLayout->addWidget(cancelBtn);
     
-    // 创建目录按钮与底部按钮的间距设置为 Dimens::PAGE_PADDING
     mainLayout->addSpacing(Dimens::PAGE_PADDING);
     mainLayout->addLayout(buttonLayout);
 
@@ -181,7 +178,7 @@ void DirectoryDialog::setupUI()
 
 void DirectoryDialog::updateCreateInputButtonsStyle()
 {
-    // 确认按钮样式（主色调圆形，带图标）
+    // 确认按钮样式
     QPixmap surePixmap(":/images/icon_sure.png");
     if (!surePixmap.isNull()) {
         QPixmap scaledPixmap = surePixmap.scaled(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE,
@@ -203,7 +200,7 @@ void DirectoryDialog::updateCreateInputButtonsStyle()
      .arg(Dimens::BTN_HEIGHT / 2)
      .arg(Colors::PRIMARY_COLOR.lighter(110).name()));
 
-    // 关闭按钮样式（灰色圆形，带图标）
+    // 关闭按钮样式
     QPixmap closePixmap(":/images/icon_close.png");
     if (!closePixmap.isNull()) {
         QPixmap scaledPixmap = closePixmap.scaled(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE,
@@ -235,15 +232,18 @@ void DirectoryDialog::loadDirectoryList()
         [this](const ApiResponse& response) {
             if (response.isSuccess() && !response.data.isNull()) {
                 clearDirectoryList();
+                directoryList.clear();
                 
                 QJsonArray dirArray = response.data.toJsonArray();
                 for (const QJsonValue& value : dirArray) {
-                    DirectoryEntity dir = DirectoryEntity::fromJson(value.toObject());
+                    Directory dir = Directory::fromJson(value.toObject());
                     if (dir.isValid()) {
                         directoryList.append(dir);
                         addDirectoryToList(dir);
                     }
                 }
+            } else {
+                QMessageBox::warning(this, "提示", "加载目录列表失败：" + response.message);
             }
         },
         [this](const QString& error) {
@@ -252,7 +252,7 @@ void DirectoryDialog::loadDirectoryList()
     );
 }
 
-void DirectoryDialog::addDirectoryToList(const DirectoryEntity& dir)
+void DirectoryDialog::addDirectoryToList(const Directory& dir)
 {
     QListWidgetItem* item = new QListWidgetItem(directoryListWidget);
     
@@ -328,7 +328,7 @@ void DirectoryDialog::onConfirmCreateDir()
         [this](const ApiResponse& response) {
             if (response.isSuccess() && !response.data.isNull()) {
                 QJsonObject dirObj = response.data.toJsonObject();
-                DirectoryEntity newDir = DirectoryEntity::fromJson(dirObj);
+                Directory newDir = Directory::fromJson(dirObj);
                 
                 if (newDir.isValid()) {
                     directoryList.append(newDir);
@@ -429,7 +429,7 @@ void DirectoryDialog::onConfirmUpload()
             
             if (obj["status"].toString() == "SUCCESS") {
                 QMessageBox::information(this, "提示", "上传成功");
-                accept();  // 关闭对话框
+                accept();
             } else {
                 QMessageBox::warning(this, "提示", "上传失败：" + obj["message"].toString());
             }
@@ -492,7 +492,6 @@ void DirectoryDialog::updateConfirmButtonState()
 
 void DirectoryDialog::onCancelCreate()
 {
-    // 取消创建目录
     hideCreateInput();
     dirNameEdit->clear();
 }

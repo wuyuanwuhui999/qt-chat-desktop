@@ -15,33 +15,7 @@
 #include "theme/Colors.h"
 #include "theme/Dimens.h"
 #include "models/ApiResponse.h"
-
-// 目录实体结构体
-struct DirectoryEntity {
-    QString id;
-    QString userId;
-    QString directory;
-    QString tenantId;
-    QString updateTime;
-    QString createTime;
-    
-    static DirectoryEntity fromJson(const QJsonObject& json) {
-        DirectoryEntity dir;
-        if (json.contains("id")) dir.id = json["id"].toString();
-        if (json.contains("userId")) dir.userId = json["userId"].toString();
-        if (json.contains("directory")) dir.directory = json["directory"].toString();
-        if (json.contains("tenantId")) dir.tenantId = json["tenantId"].toString();
-        if (json.contains("updateTime") && !json["updateTime"].isNull())
-            dir.updateTime = json["updateTime"].toString();
-        if (json.contains("createTime") && !json["createTime"].isNull())
-            dir.createTime = json["createTime"].toString();
-        return dir;
-    }
-    
-    bool isValid() const { return !id.isEmpty(); }
-};
-
-Q_DECLARE_METATYPE(DirectoryEntity)
+#include "models/Directory.h"
 
 class DirectoryDialog : public QDialog
 {
@@ -58,16 +32,16 @@ private slots:
     void onDirectorySelected();
     void onConfirmUpload();
     void onCancelCreate();
-    void onCloseCreateInput();  // 新增：关闭创建输入框
+    void onCloseCreateInput();
 
 private:
     void setupUI();
-    void addDirectoryToList(const DirectoryEntity& dir);
+    void addDirectoryToList(const Directory& dir);
     void clearDirectoryList();
     void showCreateInput();
     void hideCreateInput();
     void updateConfirmButtonState();
-    void updateCreateInputButtonsStyle();  // 新增：更新创建输入框按钮样式
+    void updateCreateInputButtonsStyle();
     
     QString m_tenantId;
     QString m_selectedDirectoryId;
@@ -84,11 +58,11 @@ private:
     QWidget* createInputWidget;
     QHBoxLayout* createInputLayout;
     QLineEdit* dirNameEdit;
-    QPushButton* confirmCreateBtn;  // 确认按钮（主色调圆形）
-    QPushButton* closeCreateBtn;    // 新增：关闭按钮（灰色圆形）
+    QPushButton* confirmCreateBtn;
+    QPushButton* closeCreateBtn;
     
     QButtonGroup* radioGroup;
-    QList<DirectoryEntity> directoryList;
+    QList<Directory> directoryList;
 };
 
 #endif // DIRECTORYDIALOG_H

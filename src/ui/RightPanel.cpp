@@ -1219,15 +1219,20 @@ void RightPanel::onWebSocketError(QAbstractSocket::SocketError error) {
 }
 
 void RightPanel::loadModelList() {
-    qDebug() << "Loading model list from:" << Constants::Endpoints::GET_MODEL_LIST;
-    
     QString token = TokenManager::instance().getToken();
     if (!token.isEmpty()) {
         NetworkManager::instance().setAuthToken(token);
     }
-    
+
+    // 模型列表需要按当前公司过滤
+    const QString companyId =
+        TokenManager::instance().getValue(Constants::CURRENT_COMPANY_ID_KEY).toString();
+    const QString endpoint = Constants::withQuery(Constants::Endpoints::GET_MODEL_LIST,
+                                                  {{"companyId", companyId}});
+    qDebug() << "Loading model list from:" << endpoint;
+
     NetworkManager::instance().get(
-        Constants::Endpoints::GET_MODEL_LIST,
+        endpoint,
         [this](const ApiResponse& response) {
             qDebug() << "Model list response - status:" << response.status 
                      << "message:" << response.message;

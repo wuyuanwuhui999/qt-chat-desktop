@@ -29,6 +29,7 @@ namespace Dimens {
     const int BTN_HEIGHT = 40;                // 50dp
     const int BTN_PADDING = 20;               // 20dp
     const int BAR_HEIGHT = 60;                // 60dp
+    const int LIST_HEIGHT = 300;              // 列表区域高度
     
     // 线条尺寸
     const int LINE_HEIGHT = 15;               // 15dp

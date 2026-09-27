@@ -398,17 +398,22 @@ void LeftPanel::createDefaultAvatar() {
 }
 
 void LeftPanel::loadTenantList() {
-    qDebug() << "Loading tenant list from:" << Constants::Endpoints::GET_USER_TENANT_LIST;
-    
     // 确保 token 已设置
     QString token = TokenManager::instance().getToken();
     if (!token.isEmpty()) {
         NetworkManager::instance().setAuthToken(token);
         qDebug() << "Refreshed auth token before tenant list request";
     }
-    
+
+    // 租户列表需要按当前公司过滤
+    const QString companyId =
+        TokenManager::instance().getValue(Constants::CURRENT_COMPANY_ID_KEY).toString();
+    const QString endpoint = Constants::withQuery(Constants::Endpoints::GET_TENANT_LIST,
+                                                  {{"companyId", companyId}});
+    qDebug() << "Loading tenant list from:" << endpoint;
+
     NetworkManager::instance().get(
-        Constants::Endpoints::GET_USER_TENANT_LIST,
+        endpoint,
         [this](const ApiResponse& response) {
             qDebug() << "Tenant list response - status:" << response.status 
                      << "message:" << response.message

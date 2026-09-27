@@ -1,7 +1,13 @@
 // Constants.h (需要添加的部分)
+#include <QList>
+#include <QPair>
+#include <QString>
+#include <QUrl>
+#include <QUrlQuery>
+
 namespace Constants {
     // API 基础URL
-    const QString BASE_URL = "http://127.0.0.1:3000";
+    const QString BASE_URL = "http://127.0.0.1:4000";
     
     // WebSocket 聊天URL
     const QString WEBSOCKET_CHAT_URL = "ws://127.0.0.1:3000/service/chat/ws/chat?token=Bearer %1";
@@ -11,6 +17,8 @@ namespace Constants {
     const QString USER_KEY = "user_data";
     const QString CURRENT_TENANT_ID_KEY = "current_tenant_id";
     const QString SELECTED_MODEL_ID_KEY = "selected_model_id";
+    const QString CURRENT_COMPANY_ID_KEY = "current_company_id";
+    const QString CURRENT_COMPANY_KEY = "current_company";
     const QString SYSTEM_PROMPT_PREFIX = "system_prompt_"; // 租户系统提示词前缀
     
     // 默认系统提示词
@@ -24,8 +32,11 @@ namespace Constants {
         const QString SEND_EMAIL_CODE = "/service/user/sendEmailVertifyCode";
         const QString EMAIL_LOGIN = "/service/user/loginByEmail";
         
+        // 公司相关
+        const QString GET_COMPANY_LIST = "/service/company/getCompanyList";
+
         // 租户相关
-        const QString GET_USER_TENANT_LIST = "/service/tenant/getUserTenantList";
+        const QString GET_TENANT_LIST = "/service/tenant/getTenantList";
         
         // 聊天相关
         const QString GET_CHAT_HISTORY = "/service/chat/getChatHistory";
@@ -40,6 +51,24 @@ namespace Constants {
 
         const QString GET_DOC_LIST_BY_DIR_ID = "/service/chat/getDocListByDirId";
 
+    }
+
+    // 接口地址拼接查询参数（自动 URL 编码；值为空的参数会被忽略）
+    // 返回可以直接交给 NetworkManager 的相对地址
+    inline QString withQuery(const QString& endpoint,
+                             const QList<QPair<QString, QString>>& params) {
+        QUrl url(BASE_URL + endpoint);
+        QUrlQuery query;
+        bool hasParam = false;
+        for (const QPair<QString, QString>& param : params) {
+            if (param.second.isEmpty()) continue;
+            query.addQueryItem(param.first, param.second);
+            hasParam = true;
+        }
+        if (hasParam) {
+            url.setQuery(query);
+        }
+        return url.toString().remove(BASE_URL);
     }
 
     // 默认租户

@@ -100,8 +100,8 @@ void WelcomeWindow::fetchUserData() {
                 User user = User::fromJson(userObj);
                 TokenManager::instance().saveUser(user);
                 
-                // 跳转到主窗口
-                emit homeRequired();
+                // 跳转到公司选择页
+                emit companyRequired();
             } else {
                 qDebug() << "Failed to fetch user data:" << response.message;
                 // 获取用户数据失败，需要重新登录

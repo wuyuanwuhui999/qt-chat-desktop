@@ -38,6 +38,8 @@ add_executable(chat
     src/ui/DirectoryDialog.cpp
     src/ui/DocumentDialog.h
     src/ui/DocumentDialog.cpp
+    src/ui/CompanyWindow.h
+    src/ui/CompanyWindow.cpp
 
     # 模型类
     src/models/ApiResponse.h
@@ -48,6 +50,8 @@ add_executable(chat
     src/models/Directory.cpp
     src/models/Document.h
     src/models/Document.cpp
+    src/models/Company.h
+    src/models/Company.cpp
     # 网络类
     src/network/NetworkManager.h
     src/network/NetworkManager.cpp

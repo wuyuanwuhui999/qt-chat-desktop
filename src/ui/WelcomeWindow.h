@@ -14,7 +14,8 @@ public:
 
 signals:
     void loginRequired();
-    void homeRequired();
+    // 已有有效 token：进入公司选择页（会用缓存的公司 id 自动选中）
+    void companyRequired();
 
 private slots:
     void onTimeout();  // 定时器超时处理

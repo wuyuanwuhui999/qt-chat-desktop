@@ -10,6 +10,7 @@
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QPainter>
+#include <QPointer>
 #include <QDebug>
 
 DirectoryDialog::DirectoryDialog(const QString& tenantId, QWidget *parent)
@@ -227,9 +228,13 @@ void DirectoryDialog::loadDirectoryList()
 {
     QString url = QString("%1?tenantId=%2").arg(Constants::Endpoints::GET_DIRECTORY_LIST).arg(m_tenantId);
     
+    // 对话框可能在请求返回前就被关闭，回调前先判活，避免访问已析构的 this
+    QPointer<DirectoryDialog> self(this);
     NetworkManager::instance().get(
         url,
-        [this](const ApiResponse& response) {
+        [this, self](const ApiResponse& response) {
+            if (!self) return;
+
             if (response.isSuccess() && !response.data.isNull()) {
                 clearDirectoryList();
                 directoryList.clear();
@@ -246,7 +251,8 @@ void DirectoryDialog::loadDirectoryList()
                 QMessageBox::warning(this, "提示", "加载目录列表失败：" + response.message);
             }
         },
-        [this](const QString& error) {
+        [this, self](const QString& error) {
+            if (!self) return;
             QMessageBox::warning(this, "提示", "加载目录列表失败：" + error);
         }
     );

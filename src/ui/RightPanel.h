@@ -72,11 +72,14 @@ public:
     // 在 RightPanel.h 的 public 部分添加
     void loadChatHistory(const ChatHistory& chat);
 
+protected:
+    // 用于把角标定位到“查询文档”按钮的右上角
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private slots:
     void onDeepThinkToggled();
     void onLanguageToggle();
-    void onSearchDocToggled();
-    void onDocSelectionToggled();
+    void onSearchDocClicked();
     void onModelMenuClicked();
     void onModelSelected();
     void onSendClicked();
@@ -156,7 +159,7 @@ private:
     QPushButton* deepThinkBtn;
     QPushButton* languageBtn;
     QPushButton* searchDocBtn;
-    QPushButton* docSelectionBtn;
+    QLabel* searchDocBadge;   // “查询文档”按钮右上角的数量角标
     
     // 模型选择相关
     QWidget* modelContainer;
@@ -170,7 +173,6 @@ private:
     // 状态变量
     bool isDeepThinkSelected;
     bool isSearchDocSelected;
-    bool isDocSelectionVisible;
     QString currentLanguage;
     
     QPushButton* sendButton;
@@ -194,6 +196,7 @@ private:
 
     QStringList m_selectedDocumentIds;  // 选中的文档ID列表
     void updateDocumentSelectionBadge();  // 更新文档选择角标
+    void positionSearchDocBadge();        // 把角标定位到按钮右上角
 
 };
 

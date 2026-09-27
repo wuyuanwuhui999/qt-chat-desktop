@@ -23,6 +23,8 @@
 #include <QTimer>
 #include <QDateTime>
 #include <QPropertyAnimation>
+#include <QEvent>
+#include <QLabel>
 
 // 注册自定义类型用于信号槽
 static struct MetaTypeRegistration {
@@ -35,7 +37,6 @@ RightPanel::RightPanel(QWidget *parent)
     : QWidget(parent)
     , isDeepThinkSelected(false)
     , isSearchDocSelected(false)
-    , isDocSelectionVisible(false)
     , isEditingPrompt(false)
     , currentLanguage("zh")
     , webSocket(nullptr)
@@ -425,13 +426,11 @@ void RightPanel::createFunctionButtons(QHBoxLayout* layout) {
      .arg(Dimens::PAGE_PADDING)
      .arg(Colors::PRIMARY_COLOR.name()));
     
-    // 查询文档按钮
+    // 查询文档按钮：点击直接弹出选择文档对话框（不再单独提供“选择文档”按钮）
     searchDocBtn = new QPushButton("查询文档", buttonContainer);
     searchDocBtn->setCursor(Qt::PointingHandCursor);
     searchDocBtn->setFixedHeight(Dimens::BTN_HEIGHT);
     searchDocBtn->setMinimumWidth(100);
-    searchDocBtn->setCheckable(true);
-    searchDocBtn->setChecked(false);
     searchDocBtn->setStyleSheet(QString(
         "QPushButton {"
         "   background-color: " + Colors::WHITE_COLOR.name() + ";"
@@ -441,53 +440,36 @@ void RightPanel::createFunctionButtons(QHBoxLayout* layout) {
         "   font-size: %3px;"
         "   padding: 0 %4px;"
         "}"
-        "QPushButton:checked {"
-        "   background-color: %5;"
-        "   color: " + Colors::WHITE_COLOR.name() + ";"
-        "   border: 1px solid %5;"
-        "}"
     ).arg(Colors::GRAY_COLOR.name())
      .arg(Dimens::BTN_HEIGHT / 2)
      .arg(Dimens::FONT_SIZE_NORMAL)
-     .arg(Dimens::PAGE_PADDING)
-     .arg(Colors::PRIMARY_COLOR.name()));
-    
-    // 选择文档按钮
-    docSelectionBtn = new QPushButton("选择文档", buttonContainer);
-    docSelectionBtn->setCursor(Qt::PointingHandCursor);
-    docSelectionBtn->setFixedHeight(Dimens::BTN_HEIGHT);
-    docSelectionBtn->setMinimumWidth(100);
-    docSelectionBtn->setVisible(false);
-    docSelectionBtn->setCheckable(true);
-    docSelectionBtn->setChecked(false);
-    docSelectionBtn->setStyleSheet(QString(
-        "QPushButton {"
-        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
-        "   color: %1;"
-        "   border: 1px solid %1;"
-        "   border-radius: %2px;"
-        "   font-size: %3px;"
-        "   padding: 0 %4px;"
+     .arg(Dimens::PAGE_PADDING));
+
+    // 右上角角标：显示已选中的文档数量
+    searchDocBadge = new QLabel(searchDocBtn);
+    searchDocBadge->setFixedSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE);
+    searchDocBadge->setAlignment(Qt::AlignCenter);
+    searchDocBadge->setStyleSheet(QString(
+        "QLabel {"
+        "   background-color: %1;"
+        "   color: %2;"
+        "   border-radius: %3px;"
+        "   font-size: %4px;"
         "}"
-        "QPushButton:checked {"
-        "   background-color: %5;"
-        "   color: " + Colors::WHITE_COLOR.name() + ";"
-        "   border: 1px solid %5;"
-        "}"
-    ).arg(Colors::GRAY_COLOR.name())
-     .arg(Dimens::BTN_HEIGHT / 2)
-     .arg(Dimens::FONT_SIZE_NORMAL)
-     .arg(Dimens::PAGE_PADDING)
-     .arg(Colors::PRIMARY_COLOR.name()));
-    
+    ).arg(Colors::PRIMARY_COLOR.name())
+     .arg(Colors::WHITE_COLOR.name())
+     .arg(Dimens::SMALL_ICON_SIZE / 2)
+     .arg(Dimens::FONT_SIZE_NORMAL - 4));
+    searchDocBadge->hide();
+    // 按钮尺寸变化时把角标重新贴到右上角
+    searchDocBtn->installEventFilter(this);
+
     // 按钮之间的间距由外部 layout 的 spacing 控制
     layout->addWidget(deepThinkBtn);
     layout->addWidget(searchDocBtn);
-    layout->addWidget(docSelectionBtn);
-    
+
     connect(deepThinkBtn, &QPushButton::toggled, this, &RightPanel::onDeepThinkToggled);
-    connect(searchDocBtn, &QPushButton::toggled, this, &RightPanel::onSearchDocToggled);
-    connect(docSelectionBtn, &QPushButton::toggled, this, &RightPanel::onDocSelectionToggled);
+    connect(searchDocBtn, &QPushButton::clicked, this, &RightPanel::onSearchDocClicked);
 }
 
 void RightPanel::createActionButtons(QHBoxLayout* layout) {
@@ -1401,74 +1383,34 @@ void RightPanel::onLanguageToggle() {
     qDebug() << "Language changed to:" << currentLanguage;
 }
 
-void RightPanel::onSearchDocToggled() {
+void RightPanel::onSearchDocClicked() {
     if (isEditingPrompt) {
-        searchDocBtn->setChecked(!searchDocBtn->isChecked());
         return;
     }
-    
-    isSearchDocSelected = searchDocBtn->isChecked();
-    
-    if (isSearchDocSelected) {
-        docSelectionBtn->setVisible(true);
-        isDocSelectionVisible = true;
-        docSelectionBtn->setEnabled(true);
-    } else {
-        docSelectionBtn->setVisible(false);
-        isDocSelectionVisible = false;
-        docSelectionBtn->setChecked(false);
-    }
-    
-    qDebug() << "Search doc selected:" << isSearchDocSelected
-             << "Doc selection visible:" << isDocSelectionVisible;
-    
-    updateButtonsStyle();
-}
 
-void RightPanel::onDocSelectionToggled()
-{
-    if (isEditingPrompt) {
-        docSelectionBtn->setChecked(!docSelectionBtn->isChecked());
+    // 获取当前租户ID
+    const QString tenantId = TokenManager::instance().getValue(Constants::CURRENT_TENANT_ID_KEY).toString();
+    if (tenantId.isEmpty()) {
+        QMessageBox::warning(this, "提示", "无法获取租户信息");
         return;
     }
-    
-    qDebug() << "Doc selection toggled:" << docSelectionBtn->isChecked();
-    
-    // 当按钮被选中（点击）时，弹出文档选择对话框
-    if (docSelectionBtn->isChecked()) {
-        // 获取当前租户ID
-        QString tenantId = TokenManager::instance().getValue(Constants::CURRENT_TENANT_ID_KEY).toString();
-        if (tenantId.isEmpty()) {
-            QMessageBox::warning(this, "提示", "无法获取租户信息");
-            docSelectionBtn->setChecked(false);
-            return;
-        }
-        
-        // 创建并显示文档选择对话框
-        DocumentDialog dialog(tenantId, this);
-        if (dialog.exec() == QDialog::Accepted) {
-            // 获取选中的文档ID列表
-            m_selectedDocumentIds = dialog.getSelectedDocumentIds();
-            
-            // 更新按钮角标显示
-            updateDocumentSelectionBadge();
-            
-            qDebug() << "Selected documents:" << m_selectedDocumentIds.size();
-            
-            // 如果有选中的文档，保持按钮为选中状态
-            if (m_selectedDocumentIds.isEmpty()) {
-                docSelectionBtn->setChecked(false);
-            }
-        } else {
-            // 用户取消选择，取消按钮选中状态
-            docSelectionBtn->setChecked(false);
-        }
+
+    // 点击“查询文档”直接弹出选择文档对话框
+    DocumentDialog dialog(tenantId, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        // 确定：记录选中文档，按钮进入激活态并显示数量角标
+        m_selectedDocumentIds = dialog.getSelectedDocumentIds();
+        qDebug() << "Selected documents:" << m_selectedDocumentIds.size();
     } else {
-        // 按钮被取消选中时，清空选中的文档
+        // 取消：清空选择，按钮恢复成原来的灰色
         m_selectedDocumentIds.clear();
-        updateDocumentSelectionBadge();
-        qDebug() << "Cleared selected documents";
+        qDebug() << "Document selection cancelled, restored to inactive state";
     }
+
+    isSearchDocSelected = !m_selectedDocumentIds.isEmpty();
+
+    updateDocumentSelectionBadge();
+    updateButtonsStyle();
 }
 
 void RightPanel::onEditPromptClicked() {
@@ -1530,12 +1472,12 @@ void RightPanel::updateButtonsStyle() {
          .arg(Dimens::PAGE_PADDING));
     }
     
-    // 更新查询文档按钮样式
+    // 更新查询文档按钮样式：有选中文档时用主色边框+文字、白色背景，否则为原来的灰色
     if (isSearchDocSelected) {
         searchDocBtn->setStyleSheet(QString(
             "QPushButton {"
-            "   background-color: %1;"
-            "   color: " + Colors::WHITE_COLOR.name() + ";"
+            "   background-color: " + Colors::WHITE_COLOR.name() + ";"
+            "   color: %1;"
             "   border: 1px solid %1;"
             "   border-radius: %2px;"
             "   font-size: %3px;"
@@ -1561,36 +1503,6 @@ void RightPanel::updateButtonsStyle() {
          .arg(Dimens::PAGE_PADDING));
     }
     
-    // 更新文档选择按钮样式
-    if (docSelectionBtn->isChecked()) {
-        docSelectionBtn->setStyleSheet(QString(
-            "QPushButton {"
-            "   background-color: %1;"
-            "   color: " + Colors::WHITE_COLOR.name() + ";"
-            "   border: 1px solid %1;"
-            "   border-radius: %2px;"
-            "   font-size: %3px;"
-            "   padding: 0 %4px;"
-            "}"
-        ).arg(Colors::PRIMARY_COLOR.name())
-         .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_NORMAL)
-         .arg(Dimens::PAGE_PADDING));
-    } else {
-        docSelectionBtn->setStyleSheet(QString(
-            "QPushButton {"
-            "   background-color: " + Colors::WHITE_COLOR.name() + ";"
-            "   color: %1;"
-            "   border: 1px solid %1;"
-            "   border-radius: %2px;"
-            "   font-size: %3px;"
-            "   padding: 0 %4px;"
-            "}"
-        ).arg(Colors::GRAY_COLOR.name())
-         .arg(Dimens::BTN_HEIGHT / 2)
-         .arg(Dimens::FONT_SIZE_NORMAL)
-         .arg(Dimens::PAGE_PADDING));
-    }
 }
 
 // 在 RightPanel.cpp 中添加
@@ -1733,55 +1645,35 @@ void RightPanel::onUploadDocClicked()
     }
 }
 
+// 角标贴在“查询文档”按钮的右上角，按钮尺寸变化时由 eventFilter 重新定位
+void RightPanel::positionSearchDocBadge()
+{
+    if (!searchDocBadge || !searchDocBtn) return;
+    searchDocBadge->move(searchDocBtn->width() - searchDocBadge->width(), 0);
+    searchDocBadge->raise();
+}
+
+bool RightPanel::eventFilter(QObject* watched, QEvent* event)
+{
+    if (watched == searchDocBtn && event->type() == QEvent::Resize) {
+        positionSearchDocBadge();
+    }
+    return QWidget::eventFilter(watched, event);
+}
+
 void RightPanel::updateDocumentSelectionBadge()
 {
-    int count = m_selectedDocumentIds.size();
-    
-    if (count > 0 && uploadDocBtn) {
-        // 创建带角标的图标
-        QPixmap originalPixmap(":/images/icon_upload.png");
-        if (!originalPixmap.isNull()) {
-            QPixmap badgePixmap(originalPixmap.size());
-            badgePixmap.fill(Qt::transparent);
-            
-            QPainter painter(&badgePixmap);
-            painter.setRenderHint(QPainter::Antialiasing);
-            painter.drawPixmap(0, 0, originalPixmap);
-            
-            // 绘制圆形背景
-            int radius = Dimens::SMALL_ICON_SIZE / 3;
-            int centerX = Dimens::SMALL_ICON_SIZE - radius;
-            int centerY = radius;
-            
-            QPainterPath path;
-            path.addEllipse(centerX - radius, centerY - radius, radius * 2, radius * 2);
-            painter.fillPath(path, Colors::PRIMARY_COLOR);
-            
-            // 绘制数字
-            painter.setPen(Qt::white);
-            QFont font;
-            font.setPixelSize(radius);
-            painter.setFont(font);
-            QString text = QString::number(count);
-            QRect textRect(centerX - radius, centerY - radius, radius * 2, radius * 2);
-            painter.drawText(textRect, Qt::AlignCenter, text);
-            
-            uploadDocBtn->setIcon(QIcon(badgePixmap));
-            uploadDocBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
-        }
-    } else if (uploadDocBtn) {
-        // 恢复原始图标
-        QPixmap uploadPixmap(":/images/icon_upload.png");
-        if (!uploadPixmap.isNull()) {
-            QPixmap transparentPixmap(uploadPixmap.size());
-            transparentPixmap.fill(Qt::transparent);
-            QPainter painter(&transparentPixmap);
-            painter.setOpacity(0.5);
-            painter.drawPixmap(0, 0, uploadPixmap);
-            uploadDocBtn->setIcon(QIcon(transparentPixmap));
-            uploadDocBtn->setIconSize(QSize(Dimens::MIDDLE_ICON_SIZE, Dimens::MIDDLE_ICON_SIZE));
-        }
+    if (!searchDocBadge) return;
+
+    const int count = m_selectedDocumentIds.size();
+    if (count <= 0) {
+        searchDocBadge->hide();
+        return;
     }
+
+    searchDocBadge->setText(QString::number(count));
+    positionSearchDocBadge();
+    searchDocBadge->show();
 }
 
 RightPanel::~RightPanel() {

@@ -10,6 +10,7 @@
 #include <QJsonObject>
 #include <QPainter>
 #include <QPropertyAnimation>
+#include <QPointer>
 
 DocumentDialog::DocumentDialog(const QString& tenantId, QWidget *parent)
     : QDialog(parent)
@@ -146,9 +147,14 @@ void DocumentDialog::loadDirectoryList()
 {
     QString url = QString("%1?tenantId=%2").arg(Constants::Endpoints::GET_DIRECTORY_LIST).arg(m_tenantId);
     
+    // 对话框可能在请求返回前就被关闭（例如点了取消），
+    // 用 QPointer 判活，避免回调访问已析构的 this
+    QPointer<DocumentDialog> self(this);
     NetworkManager::instance().get(
         url,
-        [this](const ApiResponse& response) {
+        [this, self](const ApiResponse& response) {
+            if (!self) return;
+
             if (response.isSuccess() && !response.data.isNull()) {
                 clearDirectoryList();
                 m_directoryList.clear();
@@ -165,7 +171,8 @@ void DocumentDialog::loadDirectoryList()
                 QMessageBox::warning(this, "提示", "加载目录列表失败：" + response.message);
             }
         },
-        [this](const QString& error) {
+        [this, self](const QString& error) {
+            if (!self) return;
             QMessageBox::warning(this, "提示", "网络错误：" + error);
         }
     );
@@ -310,9 +317,13 @@ void DocumentDialog::loadDocumentList(const QString& directoryId)
                       .arg(m_tenantId)
                       .arg(directoryId);
     
+    // 同 loadDirectoryList：对话框可能已被关闭，回调前先判活
+    QPointer<DocumentDialog> self(this);
     NetworkManager::instance().get(
         url,
-        [this, directoryId](const ApiResponse& response) {
+        [this, self, directoryId](const ApiResponse& response) {
+            if (!self) return;
+
             if (response.isSuccess() && !response.data.isNull()) {
                 // 找到对应的索引
                 int index = -1;
@@ -371,7 +382,8 @@ void DocumentDialog::loadDocumentList(const QString& directoryId)
                 QMessageBox::warning(this, "提示", "加载文档列表失败：" + response.message);
             }
         },
-        [this](const QString& error) {
+        [this, self](const QString& error) {
+            if (!self) return;
             QMessageBox::warning(this, "提示", "网络错误：" + error);
         }
     );

@@ -80,6 +80,7 @@ private slots:
     void onDeepThinkToggled();
     void onLanguageToggle();
     void onSearchDocClicked();
+    void onPromptClicked();
     void onModelMenuClicked();
     void onModelSelected();
     void onSendClicked();
@@ -160,6 +161,7 @@ private:
     QPushButton* languageBtn;
     QPushButton* searchDocBtn;
     QLabel* searchDocBadge;   // “查询文档”按钮右上角的数量角标
+    QPushButton* promptBtn;   // “提示词”按钮（提示词库，区别于 editPromptBtn 的系统提示词编辑）
     
     // 模型选择相关
     QWidget* modelContainer;
@@ -195,6 +197,7 @@ private:
     QPushButton* uploadDocBtn;
 
     QStringList m_selectedDocumentIds;  // 选中的文档ID列表
+    QString m_promptId;                 // 正在使用的提示词ID
     void updateDocumentSelectionBadge();  // 更新文档选择角标
     void positionSearchDocBadge();        // 把角标定位到按钮右上角
 

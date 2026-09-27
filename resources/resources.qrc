@@ -10,5 +10,7 @@
     <file>images/icon_upload.png</file>
     <file>images/icon_sure.png</file>
     <file>images/icon_close.png</file>
+    <file>images/icon_refresh.png</file>
+    <file>images/icon_add.png</file>
 </qresource>
 </RCC>

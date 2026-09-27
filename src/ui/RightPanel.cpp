@@ -2,6 +2,7 @@
 #include "HomeWindow.h"
 #include "DirectoryDialog.h"
 #include "DocumentDialog.h"  // 添加这一行
+#include "PromptDialog.h"
 #include <QMessageBox>
 #include "network/NetworkManager.h"
 #include "utils/TokenManager.h"
@@ -464,12 +465,33 @@ void RightPanel::createFunctionButtons(QHBoxLayout* layout) {
     // 按钮尺寸变化时把角标重新贴到右上角
     searchDocBtn->installEventFilter(this);
 
+    // 提示词按钮：点击弹出提示词库对话框
+    promptBtn = new QPushButton("提示词", buttonContainer);
+    promptBtn->setCursor(Qt::PointingHandCursor);
+    promptBtn->setFixedHeight(Dimens::BTN_HEIGHT);
+    promptBtn->setMinimumWidth(100);
+    promptBtn->setStyleSheet(QString(
+        "QPushButton {"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
+        "   color: %1;"
+        "   border: 1px solid %1;"
+        "   border-radius: %2px;"
+        "   font-size: %3px;"
+        "   padding: 0 %4px;"
+        "}"
+    ).arg(Colors::GRAY_COLOR.name())
+     .arg(Dimens::BTN_HEIGHT / 2)
+     .arg(Dimens::FONT_SIZE_NORMAL)
+     .arg(Dimens::PAGE_PADDING));
+
     // 按钮之间的间距由外部 layout 的 spacing 控制
     layout->addWidget(deepThinkBtn);
     layout->addWidget(searchDocBtn);
+    layout->addWidget(promptBtn);
 
     connect(deepThinkBtn, &QPushButton::toggled, this, &RightPanel::onDeepThinkToggled);
     connect(searchDocBtn, &QPushButton::clicked, this, &RightPanel::onSearchDocClicked);
+    connect(promptBtn, &QPushButton::clicked, this, &RightPanel::onPromptClicked);
 }
 
 void RightPanel::createActionButtons(QHBoxLayout* layout) {
@@ -703,6 +725,7 @@ void RightPanel::enterEditMode() {
     // 禁用其他按钮
     deepThinkBtn->setEnabled(false);
     searchDocBtn->setEnabled(false);
+    promptBtn->setEnabled(false);
     modelContainer->setEnabled(false);
     languageBtn->setEnabled(false);
     sendButton->setEnabled(false);
@@ -756,6 +779,7 @@ void RightPanel::exitEditMode() {
     // 启用其他按钮
     deepThinkBtn->setEnabled(true);
     searchDocBtn->setEnabled(true);
+    promptBtn->setEnabled(true);
     modelContainer->setEnabled(true);
     languageBtn->setEnabled(true);
     sendButton->setEnabled(!inputEdit->toPlainText().trimmed().isEmpty());
@@ -910,6 +934,8 @@ void RightPanel::onWebSocketConnected() {
     QString tenantId = TokenManager::instance().getValue(Constants::CURRENT_TENANT_ID_KEY).toString();
     message["tenantId"] = tenantId;
     message["language"] = currentLanguage;
+    // 正在使用的提示词ID
+    message["promptId"] = m_promptId;
     
     QJsonDocument doc(message);
     QString messageStr = doc.toJson(QJsonDocument::Compact);
@@ -1413,6 +1439,32 @@ void RightPanel::onSearchDocClicked() {
     updateButtonsStyle();
 }
 
+void RightPanel::onPromptClicked() {
+    if (isEditingPrompt) {
+        return;
+    }
+
+    const QString tenantId = TokenManager::instance().getValue(Constants::CURRENT_TENANT_ID_KEY).toString();
+    if (tenantId.isEmpty()) {
+        QMessageBox::warning(this, "提示", "无法获取租户信息");
+        return;
+    }
+
+    // 点击“提示词”直接弹出提示词库对话框
+    PromptDialog dialog(tenantId, m_promptId, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        // 确定：记录正在使用的提示词，按钮进入激活态
+        m_promptId = dialog.selectedPromptId();
+        qDebug() << "Prompt in use:" << m_promptId;
+    } else {
+        // 取消：清除 promptId，按钮恢复成灰色
+        m_promptId.clear();
+        qDebug() << "Prompt selection cancelled, cleared promptId";
+    }
+
+    updateButtonsStyle();
+}
+
 void RightPanel::onEditPromptClicked() {
     if (isEditingPrompt) {
         // 退出编辑模式
@@ -1502,7 +1554,37 @@ void RightPanel::updateButtonsStyle() {
          .arg(Dimens::FONT_SIZE_NORMAL)
          .arg(Dimens::PAGE_PADDING));
     }
-    
+
+    // 更新提示词按钮样式：使用了提示词时用主色边框+文字，否则为灰色
+    if (!m_promptId.isEmpty()) {
+        promptBtn->setStyleSheet(QString(
+            "QPushButton {"
+            "   background-color: " + Colors::WHITE_COLOR.name() + ";"
+            "   color: %1;"
+            "   border: 1px solid %1;"
+            "   border-radius: %2px;"
+            "   font-size: %3px;"
+            "   padding: 0 %4px;"
+            "}"
+        ).arg(Colors::PRIMARY_COLOR.name())
+         .arg(Dimens::BTN_HEIGHT / 2)
+         .arg(Dimens::FONT_SIZE_NORMAL)
+         .arg(Dimens::PAGE_PADDING));
+    } else {
+        promptBtn->setStyleSheet(QString(
+            "QPushButton {"
+            "   background-color: " + Colors::WHITE_COLOR.name() + ";"
+            "   color: %1;"
+            "   border: 1px solid %1;"
+            "   border-radius: %2px;"
+            "   font-size: %3px;"
+            "   padding: 0 %4px;"
+            "}"
+        ).arg(Colors::GRAY_COLOR.name())
+         .arg(Dimens::BTN_HEIGHT / 2)
+         .arg(Dimens::FONT_SIZE_NORMAL)
+         .arg(Dimens::PAGE_PADDING));
+    }
 }
 
 // 在 RightPanel.cpp 中添加

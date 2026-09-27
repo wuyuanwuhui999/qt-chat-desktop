@@ -19,6 +19,7 @@ namespace Constants {
     const QString SELECTED_MODEL_ID_KEY = "selected_model_id";
     const QString CURRENT_COMPANY_ID_KEY = "current_company_id";
     const QString CURRENT_COMPANY_KEY = "current_company";
+    const QString CURRENT_PROMPT_ID_KEY = "current_prompt_id";
     const QString SYSTEM_PROMPT_PREFIX = "system_prompt_"; // 租户系统提示词前缀
     
     // 默认系统提示词
@@ -44,6 +45,10 @@ namespace Constants {
         
         // 提示词相关
         const QString GET_DEFAULT_PROMPT_BY_TENANT_ID = "/service/prompt/getDefaultPromptByTenantId";
+        const QString GET_PROMPT_LIST = "/service/prompt/getPromptList";
+        const QString INSERT_PROMPT = "/service/prompt/insertPrompt";
+        const QString UPDATE_PROMPT = "/service/prompt/updatePrompt";
+        const QString DELETE_PROMPT = "/service/prompt/deletePrompt/%1/%2";  // 需要传入 promptId 和 tenantId
 
         const QString GET_DIRECTORY_LIST = "/service/chat/getDirectoryList";
         const QString CREATE_DIR = "/service/chat/createDir";

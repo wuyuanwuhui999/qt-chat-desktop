@@ -34,25 +34,19 @@ ApiResponse NetworkManager::parseResponse(const QByteArray& data) {
     return ApiResponse::fromJson(doc.object());
 }
 
-void NetworkManager::get(const QString& endpoint,
-                         const std::function<void(const ApiResponse&)>& successCallback,
-                         const std::function<void(const QString&)>& errorCallback) {
-    QUrl url(Constants::BASE_URL + endpoint);
-    QNetworkRequest request(url);
-    addAuthHeader(request);
-    
-    QNetworkReply* reply = manager->get(request);
-    
+void NetworkManager::bindReply(QNetworkReply* reply,
+                               const SuccessCallback& successCallback,
+                               const ErrorCallback& errorCallback) {
     connect(reply, &QNetworkReply::finished, [reply, successCallback, errorCallback]() {
         if (reply->error() == QNetworkReply::NoError) {
             ApiResponse response = NetworkManager::instance().parseResponse(reply->readAll());
-            
+
             // 如果返回了新token，更新缓存
             if (!response.token.isEmpty()) {
                 TokenManager::instance().saveToken(response.token);
                 NetworkManager::instance().setAuthToken(response.token);
             }
-            
+
             if (successCallback) {
                 successCallback(response);
             }
@@ -65,37 +59,50 @@ void NetworkManager::get(const QString& endpoint,
     });
 }
 
+void NetworkManager::get(const QString& endpoint,
+                         const SuccessCallback& successCallback,
+                         const ErrorCallback& errorCallback) {
+    QUrl url(Constants::BASE_URL + endpoint);
+    QNetworkRequest request(url);
+    addAuthHeader(request);
+
+    bindReply(manager->get(request), successCallback, errorCallback);
+}
+
 void NetworkManager::post(const QString& endpoint,
                           const QJsonObject& data,
-                          const std::function<void(const ApiResponse&)>& successCallback,
-                          const std::function<void(const QString&)>& errorCallback) {
+                          const SuccessCallback& successCallback,
+                          const ErrorCallback& errorCallback) {
     QUrl url(Constants::BASE_URL + endpoint);
     QNetworkRequest request(url);
     request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     addAuthHeader(request);
-    
-    QJsonDocument doc(data);
-    QByteArray postData = doc.toJson();
-    
-    QNetworkReply* reply = manager->post(request, postData);
-    
-    connect(reply, &QNetworkReply::finished, [reply, successCallback, errorCallback]() {
-        if (reply->error() == QNetworkReply::NoError) {
-            ApiResponse response = NetworkManager::instance().parseResponse(reply->readAll());
-            
-            if (!response.token.isEmpty()) {
-                TokenManager::instance().saveToken(response.token);
-                NetworkManager::instance().setAuthToken(response.token);
-            }
-            
-            if (successCallback) {
-                successCallback(response);
-            }
-        } else {
-            if (errorCallback) {
-                errorCallback(reply->errorString());
-            }
-        }
-        reply->deleteLater();
-    });
+
+    const QByteArray postData = QJsonDocument(data).toJson();
+
+    bindReply(manager->post(request, postData), successCallback, errorCallback);
+}
+
+void NetworkManager::put(const QString& endpoint,
+                         const QJsonObject& data,
+                         const SuccessCallback& successCallback,
+                         const ErrorCallback& errorCallback) {
+    QUrl url(Constants::BASE_URL + endpoint);
+    QNetworkRequest request(url);
+    request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    addAuthHeader(request);
+
+    const QByteArray putData = QJsonDocument(data).toJson();
+
+    bindReply(manager->put(request, putData), successCallback, errorCallback);
+}
+
+void NetworkManager::del(const QString& endpoint,
+                         const SuccessCallback& successCallback,
+                         const ErrorCallback& errorCallback) {
+    QUrl url(Constants::BASE_URL + endpoint);
+    QNetworkRequest request(url);
+    addAuthHeader(request);
+
+    bindReply(manager->deleteResource(request), successCallback, errorCallback);
 }

@@ -40,6 +40,10 @@ add_executable(chat
     src/ui/DocumentDialog.cpp
     src/ui/CompanyWindow.h
     src/ui/CompanyWindow.cpp
+    src/ui/PromptDialog.h
+    src/ui/PromptDialog.cpp
+    src/ui/PromptFormDialog.h
+    src/ui/PromptFormDialog.cpp
 
     # 模型类
     src/models/ApiResponse.h
@@ -52,6 +56,8 @@ add_executable(chat
     src/models/Document.cpp
     src/models/Company.h
     src/models/Company.cpp
+    src/models/Prompt.h
+    src/models/Prompt.cpp
     # 网络类
     src/network/NetworkManager.h
     src/network/NetworkManager.cpp

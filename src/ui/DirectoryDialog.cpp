@@ -62,7 +62,7 @@ void DirectoryDialog::setupUI()
     createDirBtn->setStyleSheet(QString(
         "QPushButton {"
         "   background-color: %1;"
-        "   color: white;"
+        "   color: " + Colors::WHITE_COLOR.name() + ";"
         "   border: none;"
         "   border-radius: %2px;"
         "   font-size: %3px;"
@@ -136,7 +136,7 @@ void DirectoryDialog::setupUI()
     confirmBtn->setStyleSheet(QString(
         "QPushButton {"
         "   background-color: %1;"
-        "   color: white;"
+        "   color: " + Colors::WHITE_COLOR.name() + ";"
         "   border: none;"
         "   border-radius: %2px;"
         "   font-size: %3px;"
@@ -148,20 +148,20 @@ void DirectoryDialog::setupUI()
     cancelBtn = new QPushButton("取消", this);
     cancelBtn->setFixedHeight(Dimens::BTN_HEIGHT);
     cancelBtn->setCursor(Qt::PointingHandCursor);
+    // 规范：取消按钮背景透明，边框与文字使用 Colors::GRAY_COLOR
     cancelBtn->setStyleSheet(QString(
         "QPushButton {"
-        "   background-color: white;"
+        "   background-color: transparent;"
         "   color: %1;"
-        "   border: 1px solid %2;"
-        "   border-radius: %3px;"
-        "   font-size: %4px;"
+        "   border: 1px solid %1;"
+        "   border-radius: %2px;"
+        "   font-size: %3px;"
         "}"
         "QPushButton:hover {"
-        "   border-color: %5;"
-        "   color: %5;"
+        "   border-color: %4;"
+        "   color: %4;"
         "}"
-    ).arg(Colors::TEXT_COLOR.name())
-     .arg(Colors::GRAY_COLOR.name())
+    ).arg(Colors::GRAY_COLOR.name())
      .arg(Dimens::BTN_HEIGHT / 2)
      .arg(Dimens::FONT_SIZE_NORMAL)
      .arg(Colors::PRIMARY_COLOR.name()));
@@ -462,7 +462,7 @@ void DirectoryDialog::updateConfirmButtonState()
         confirmBtn->setStyleSheet(QString(
             "QPushButton {"
             "   background-color: %1;"
-            "   color: white;"
+            "   color: " + Colors::WHITE_COLOR.name() + ";"
             "   border: none;"
             "   border-radius: %2px;"
             "   font-size: %3px;"
@@ -475,7 +475,7 @@ void DirectoryDialog::updateConfirmButtonState()
         confirmBtn->setStyleSheet(QString(
             "QPushButton {"
             "   background-color: %1;"
-            "   color: white;"
+            "   color: " + Colors::WHITE_COLOR.name() + ";"
             "   border: none;"
             "   border-radius: %2px;"
             "   font-size: %3px;"

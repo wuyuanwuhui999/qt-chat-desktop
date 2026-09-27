@@ -37,7 +37,7 @@ void DocumentDialog::setupUI()
     m_scrollArea = new QScrollArea(this);
     m_scrollArea->setWidgetResizable(true);
     m_scrollArea->setFrameShape(QFrame::NoFrame);
-    m_scrollArea->setStyleSheet("QScrollArea { background-color: white; border: none; }");
+    m_scrollArea->setStyleSheet("QScrollArea { background-color: " + Colors::WHITE_COLOR.name() + "; border: none; }");
     m_scrollArea->verticalScrollBar()->setStyleSheet(
         "QScrollBar:vertical {"
         "   background-color: transparent;"
@@ -58,7 +58,7 @@ void DocumentDialog::setupUI()
     );
     
     m_containerWidget = new QWidget();
-    m_containerWidget->setStyleSheet("background-color: white;");
+    m_containerWidget->setStyleSheet("background-color: " + Colors::WHITE_COLOR.name() + ";");
     m_containerLayout = new QVBoxLayout(m_containerWidget);
     m_containerLayout->setContentsMargins(0, 0, 0, 0);
     m_containerLayout->setSpacing(0);
@@ -69,7 +69,7 @@ void DocumentDialog::setupUI()
     
     // 底部按钮容器
     QWidget* buttonWidget = new QWidget(this);
-    buttonWidget->setStyleSheet("background-color: white;");
+    buttonWidget->setStyleSheet("background-color: " + Colors::WHITE_COLOR.name() + ";");
     
     QVBoxLayout* buttonWrapperLayout = new QVBoxLayout(buttonWidget);
     buttonWrapperLayout->setContentsMargins(0, 0, 0, Dimens::PAGE_PADDING);

@@ -22,10 +22,6 @@ public:
 signals:
     void loginSuccess();
 
-protected:
-    // 添加resizeEvent的声明
-    void resizeEvent(QResizeEvent* event) override;
-
 private slots:
     void onPasswordLoginTabClicked();
     void onEmailLoginTabClicked();

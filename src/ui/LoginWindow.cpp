@@ -29,17 +29,10 @@ LoginWindow::LoginWindow(QWidget *parent)
       isSendingCode(false),
       currentTabIndex(0) {
     
-    // 设置渐变背景色 - 从浅橙色渐变到白色
+    // 背景色统一使用 Colors::BACKGROUND_COLOR
     setAutoFillBackground(true);
     QPalette palette = this->palette();
-    
-    // 创建线性渐变（从上到下）
-    QLinearGradient gradient(rect().topLeft(), rect().bottomRight());
-    gradient.setColorAt(0.0, Colors::PRIMARY_COLOR.lighter(150));  // 顶部：浅橙色
-    gradient.setColorAt(0.5, Colors::PRIMARY_COLOR.lighter(180)); // 中间：更浅的橙色
-    gradient.setColorAt(1.0, Colors::WHITE_COLOR);                // 底部：白色
-    
-    palette.setBrush(QPalette::Window, QBrush(gradient));
+    palette.setBrush(QPalette::Window, QBrush(Colors::BACKGROUND_COLOR));
     setPalette(palette);
     
     setupUI();
@@ -53,28 +46,6 @@ LoginWindow::LoginWindow(QWidget *parent)
     QTimer::singleShot(0, this, [this]() {
         onUsernamePasswordChanged();
     });
-}
-
-// 重写resizeEvent以在窗口大小改变时更新渐变
-void LoginWindow::resizeEvent(QResizeEvent* event) {
-    QWidget::resizeEvent(event);
-    
-    // 更新渐变以适应新的窗口大小
-    QLinearGradient gradient(rect().topLeft(), rect().bottomRight());
-    gradient.setColorAt(0.0, Colors::PRIMARY_COLOR.lighter(150));
-    gradient.setColorAt(0.5, Colors::PRIMARY_COLOR.lighter(180));
-    gradient.setColorAt(1.0, Colors::WHITE_COLOR);
-    
-    QPalette palette = this->palette();
-    palette.setBrush(QPalette::Window, QBrush(gradient));
-    setPalette(palette);
-    
-    // 重新居中登录框（如果需要）
-    if (loginContainer) {
-        int x = (width() - loginContainer->width()) / 2;
-        int y = (height() - loginContainer->height()) / 2;
-        // 注意：由于使用了布局，通常不需要手动设置位置
-    }
 }
 
 void LoginWindow::setupUI() {
@@ -131,11 +102,11 @@ QWidget* LoginWindow::createLoginContainer() {
     container->setFixedWidth(400);
     container->setStyleSheet(
         "QWidget {"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "   border-radius: 10px;"
         "}"
         "QWidget:hover {"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "}"
     );
     
@@ -315,7 +286,7 @@ QWidget* LoginWindow::createEmailInputContainer() {
     // 关键修改：给容器设置圆角边框背景，模拟输入框的外观
     container->setStyleSheet(
         "QWidget { "
-        "   background-color: white; "
+        "   background-color: " + Colors::WHITE_COLOR.name() + "; "
         "   border: 1px solid " + Colors::GRAY_COLOR.name() + "; "
         "   border-radius: " + QString::number(Dimens::INPUT_HEIGHT / 2) + "px; "
         "}"
@@ -394,7 +365,7 @@ QString LoginWindow::createInputStyle() {
         "   border-radius: %2px;"
         "   padding: 0 %3px;"
         "   font-size: 14px;"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "}"
         "QLineEdit:focus {"
         "   border-color: %4;"
@@ -410,10 +381,10 @@ QString LoginWindow::createEmailInputStyle() {
         "QLineEdit {"
         "   border: 1px solid %1;"
         "   border-radius: %2px;"
-        "   padding: 0 15px;"
+        "   padding: 0 " + QString::number(Dimens::PAGE_PADDING) + "px;"
         "   padding-right: %3px;"  // 为按钮预留空间
         "   font-size: 14px;"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "}"
         "QLineEdit:focus {"
         "   border-color: %4;"
@@ -450,7 +421,7 @@ QString LoginWindow::createDisabledLoginButtonStyle() {
     return QString(
         "QPushButton {"
         "   background-color: %1;"
-        "   color: white;"
+        "   color: " + Colors::WHITE_COLOR.name() + ";"
         "   border: none;"
         "   border-radius: %2px;"
         "   font-size: 16px;"
@@ -471,7 +442,7 @@ QPushButton* LoginWindow::createRegisterButton() {
 QString LoginWindow::createRegisterButtonStyle() {
     return QString(
         "QPushButton {"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "   color: %1;"
         "   border: 1px solid %2;"
         "   border-radius: %3px;"
@@ -554,9 +525,9 @@ void LoginWindow::setupPasswordLoginPanel() {
         "QLineEdit {"
         "   border: 1px solid " + Colors::GRAY_COLOR.name() + ";"
         "   border-radius: " + QString::number(Dimens::INPUT_HEIGHT / 2) + "px;"
-        "   padding: 0 15px;"
+        "   padding: 0 " + QString::number(Dimens::PAGE_PADDING) + "px;"
         "   font-size: 14px;"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "}"
         "QLineEdit:focus {"
         "   border-color: " + Colors::PRIMARY_COLOR.name() + ";"
@@ -574,9 +545,9 @@ void LoginWindow::setupPasswordLoginPanel() {
         "QLineEdit {"
         "   border: 1px solid " + Colors::GRAY_COLOR.name() + ";"
         "   border-radius: " + QString::number(Dimens::INPUT_HEIGHT / 2) + "px;"
-        "   padding: 0 15px;"
+        "   padding: 0 " + QString::number(Dimens::PAGE_PADDING) + "px;"
         "   font-size: 14px;"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "}"
         "QLineEdit:focus {"
         "   border-color: " + Colors::PRIMARY_COLOR.name() + ";"
@@ -616,10 +587,10 @@ void LoginWindow::setupEmailLoginPanel() {
         "QLineEdit {"
         "   border: 1px solid " + Colors::GRAY_COLOR.name() + ";"
         "   border-radius: " + QString::number(Dimens::INPUT_HEIGHT / 2) + "px;"
-        "   padding: 0 15px;"
+        "   padding: 0 " + QString::number(Dimens::PAGE_PADDING) + "px;"
         "   padding-right: 40px;"  // 为图标预留空间
         "   font-size: 14px;"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "}"
         "QLineEdit:focus {"
         "   border-color: " + Colors::PRIMARY_COLOR.name() + ";"
@@ -655,9 +626,9 @@ void LoginWindow::setupEmailLoginPanel() {
         "QLineEdit {"
         "   border: 1px solid " + Colors::GRAY_COLOR.name() + ";"
         "   border-radius: " + QString::number(Dimens::INPUT_HEIGHT / 2) + "px;"
-        "   padding: 0 15px;"
+        "   padding: 0 " + QString::number(Dimens::PAGE_PADDING) + "px;"
         "   font-size: 14px;"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "}"
         "QLineEdit:focus {"
         "   border-color: " + Colors::PRIMARY_COLOR.name() + ";"
@@ -690,7 +661,7 @@ void LoginWindow::updateTabIndicator(int index) {
     
     // 更新页签文字颜色
     QString activeStyle = "QPushButton { background: transparent; border: none; font-size: 16px; padding: 10px 20px; color: " + Colors::PRIMARY_COLOR.name() + "; }";
-    QString inactiveStyle = "QPushButton { background: transparent; border: none; font-size: 16px; padding: 10px 20px; color: #000000; }"; // 黑色
+    QString inactiveStyle = "QPushButton { background: transparent; border: none; font-size: 16px; padding: 10px 20px; color: " + Colors::TEXT_COLOR.name() + "; }";
     
     passwordLoginTab->setStyleSheet(index == 0 ? activeStyle : inactiveStyle);
     emailLoginTab->setStyleSheet(index == 1 ? activeStyle : inactiveStyle);
@@ -752,7 +723,7 @@ void LoginWindow::onUsernamePasswordChanged() {
         loginButton->setStyleSheet(
             "QPushButton {"
             "   background-color: " + Colors::PRIMARY_COLOR.name() + ";"
-            "   color: white;"
+            "   color: " + Colors::WHITE_COLOR.name() + ";"
             "   border: none;"
             "   border-radius: " + QString::number(Dimens::BTN_HEIGHT / 2) + "px;"
             "   font-size: 16px;"
@@ -766,7 +737,7 @@ void LoginWindow::onUsernamePasswordChanged() {
         loginButton->setStyleSheet(
             "QPushButton {"
             "   background-color: " + Colors::GRAY_COLOR.name() + ";"
-            "   color: white;"
+            "   color: " + Colors::WHITE_COLOR.name() + ";"
             "   border: none;"
             "   border-radius: " + QString::number(Dimens::BTN_HEIGHT / 2) + "px;"
             "   font-size: 16px;"
@@ -805,7 +776,7 @@ void LoginWindow::onCodeChanged(const QString& code) {
         loginButton->setStyleSheet(
             "QPushButton {"
             "   background-color: " + Colors::PRIMARY_COLOR.name() + ";"
-            "   color: white;"
+            "   color: " + Colors::WHITE_COLOR.name() + ";"
             "   border: none;"
             "   border-radius: " + QString::number(Dimens::BTN_HEIGHT / 2) + "px;"
             "   font-size: 16px;"
@@ -815,7 +786,7 @@ void LoginWindow::onCodeChanged(const QString& code) {
         loginButton->setStyleSheet(
             "QPushButton {"
             "   background-color: " + Colors::GRAY_COLOR.name() + ";"
-            "   color: white;"
+            "   color: " + Colors::WHITE_COLOR.name() + ";"
             "   border: none;"
             "   border-radius: " + QString::number(Dimens::BTN_HEIGHT / 2) + "px;"
             "   font-size: 16px;"
@@ -930,7 +901,7 @@ void LoginWindow::setLoading(bool loading) {
         loginButton->setStyleSheet(
             "QPushButton {"
             "   background-color: " + Colors::PRIMARY_COLOR.name() + ";"
-            "   color: white;"
+            "   color: " + Colors::WHITE_COLOR.name() + ";"
             "   border: none;"
             "   border-radius: " + QString::number(Dimens::BTN_HEIGHT / 2) + "px;"
             "   font-size: 16px;"

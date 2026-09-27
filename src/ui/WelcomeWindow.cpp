@@ -21,7 +21,7 @@ WelcomeWindow::WelcomeWindow(QWidget *parent) : QWidget(parent) {
     
     layout = new QVBoxLayout(this);
     layout->setAlignment(Qt::AlignCenter);
-    layout->setSpacing(Dimens::SMALL_MARGIN);  // 使用较小的间距
+    layout->setSpacing(Dimens::PAGE_PADDING);
     
     // 添加顶部拉伸，确保垂直居中
     layout->addStretch();

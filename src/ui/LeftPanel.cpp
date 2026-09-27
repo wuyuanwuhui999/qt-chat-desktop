@@ -38,7 +38,7 @@ LeftPanel::LeftPanel(QWidget *parent)
     , isLoadingChats(false)
     , hasMoreChats(true)
 {
-    setStyleSheet(QString("background-color: 1%;").arg(Colors::WHITE_COLOR.name()));
+    setStyleSheet(QString("background-color: %1;").arg(Colors::WHITE_COLOR.name()));
     setMinimumWidth(250);
     
     setupUI();
@@ -109,10 +109,10 @@ void LeftPanel::setupUserInfoArea() {
     // 用户信息容器
     userInfoWidget = new QWidget(this);
     userInfoWidget->setFixedHeight(Dimens::BAR_HEIGHT);
-    userInfoWidget->setStyleSheet(QString(
-        "background-color: white;"
+    userInfoWidget->setStyleSheet(
+        "background-color: " + Colors::WHITE_COLOR.name() + ";"
         "border-bottom: none;"
-    ));
+    );
     
     userInfoLayout = new QHBoxLayout(userInfoWidget);
     userInfoLayout->setContentsMargins(Dimens::PAGE_PADDING, 0, Dimens::PAGE_PADDING, 0);
@@ -127,7 +127,7 @@ void LeftPanel::setupUserInfoArea() {
     // 用户文本信息布局
     userTextLayout = new QVBoxLayout();
     userTextLayout->setContentsMargins(0, 0, 0, 0);
-    userTextLayout->setSpacing(Dimens::SMALL_MARGIN);
+    userTextLayout->setSpacing(Dimens::PAGE_PADDING);
 
     userNameLabel = new QLabel(userInfoWidget);
     userNameLabel->setStyleSheet(QString("color: %1; font-size: %2px; font-weight: bold; background-color: transparent;")
@@ -140,7 +140,7 @@ void LeftPanel::setupUserInfoArea() {
     tenantContainer->setStyleSheet("background-color: transparent; border: none;");
     QHBoxLayout* tenantLayout = new QHBoxLayout(tenantContainer);
     tenantLayout->setContentsMargins(0, 0, 0, 0);
-    tenantLayout->setSpacing(Dimens::SMALL_MARGIN);
+    tenantLayout->setSpacing(Dimens::PAGE_PADDING);
 
     // 租户名称按钮
     tenantNameBtn = new QPushButton(tenantContainer);
@@ -173,7 +173,7 @@ void LeftPanel::setupUserInfoArea() {
         "   border: none;"
         "}"
         "QPushButton:hover {"
-        "   background-color: rgba(0, 0, 0, 10);" 
+        "   background-color: " + Colors::SEARCH_INPUT_COLOR.name() + ";" 
         "}";
     tenantArrowBtn->setStyleSheet(btnStyle);
 
@@ -187,8 +187,8 @@ void LeftPanel::setupUserInfoArea() {
         tenantArrowBtn->setText("▼");
         tenantArrowBtn->setStyleSheet(btnStyle + 
             "QPushButton {"
-            "   color: rgba(100, 100, 100, 128);" 
-            "   font-size: 14px;"
+            "   color: " + Colors::SUB_TITLE_COLOR.name() + ";" 
+            "   font-size: " + QString::number(Dimens::FONT_SIZE_NORMAL) + "px;"
             "   padding: 0;"
             "}");
     }
@@ -213,7 +213,7 @@ void LeftPanel::setupUserInfoArea() {
 void LeftPanel::setupNewChatArea() {
     newChatWidget = new QWidget(this);
     newChatWidget->setFixedHeight(Dimens::BTN_HEIGHT + Dimens::PAGE_PADDING * 2);
-    newChatWidget->setStyleSheet("background-color: white;");
+    newChatWidget->setStyleSheet("background-color: " + Colors::WHITE_COLOR.name() + ";");
     
     QVBoxLayout* newChatLayout = new QVBoxLayout(newChatWidget);
     newChatLayout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING,
@@ -225,7 +225,7 @@ void LeftPanel::setupNewChatArea() {
     newChatBtn->setStyleSheet(QString(
         "QPushButton {"
         "   background-color: %1;"
-        "   color: white;"
+        "   color: " + Colors::WHITE_COLOR.name() + ";"
         "   border: none;"
         "   border-radius: %2px;"
         "   font-size: %3px;"
@@ -251,7 +251,7 @@ void LeftPanel::setupChatHistoryArea() {
     chatScrollArea = new QScrollArea(this);
     chatScrollArea->setWidgetResizable(true);
     chatScrollArea->setFrameShape(QFrame::NoFrame);
-    chatScrollArea->setStyleSheet("QScrollArea { background-color: white; border: none; }");
+    chatScrollArea->setStyleSheet("QScrollArea { background-color: " + Colors::WHITE_COLOR.name() + "; border: none; }");
     
     // 自定义滚动条样式
     chatScrollArea->verticalScrollBar()->setStyleSheet(
@@ -274,7 +274,7 @@ void LeftPanel::setupChatHistoryArea() {
     );
 
     chatContainer = new QWidget();
-    chatContainer->setStyleSheet("background-color: white;");
+    chatContainer->setStyleSheet("background-color: " + Colors::WHITE_COLOR.name() + ";");
     chatContainer->installEventFilter(this);
     
     chatLayout = new QVBoxLayout(chatContainer);
@@ -520,7 +520,7 @@ void LeftPanel::showTenantPopupMenu() {
     QMenu menu(this);
     menu.setStyleSheet(QString(
         "QMenu {"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "   border: 1px solid %1;"
         "   border-radius: %2px;"
         "   padding: %3px;"
@@ -533,11 +533,11 @@ void LeftPanel::showTenantPopupMenu() {
         "}"
         "QMenu::item:selected {"
         "   background-color: %7;"
-        "   color: white;"
+        "   color: " + Colors::WHITE_COLOR.name() + ";"
         "}"
     ).arg(Colors::LINE_COLOR.name())
-     .arg(Dimens::SMALL_MARGIN)
-     .arg(Dimens::SMALL_MARGIN)
+     .arg(Dimens::PAGE_PADDING)
+     .arg(Dimens::PAGE_PADDING)
      .arg(Dimens::PAGE_PADDING)
      .arg(Colors::TEXT_COLOR.name())
      .arg(Dimens::FONT_SIZE_NORMAL)
@@ -760,9 +760,9 @@ QWidget* LeftPanel::createChatItemWidget(const ChatHistory& chat) {
      .arg(Colors::SEARCH_INPUT_COLOR.name()));
     
     QVBoxLayout* layout = new QVBoxLayout(widget);
-    layout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::SMALL_MARGIN,
-                               Dimens::PAGE_PADDING, Dimens::SMALL_MARGIN);
-    layout->setSpacing(Dimens::SMALL_MARGIN);
+    layout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING,
+                               Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
+    layout->setSpacing(Dimens::PAGE_PADDING);
     
     // 提示词
     QLabel* promptLabel = new QLabel(chat.prompt, widget);
@@ -786,6 +786,8 @@ QWidget* LeftPanel::createChatItemWidget(const ChatHistory& chat) {
     widget->setProperty("chat_time", chat.createTime.toString(Qt::ISODate));
     widget->setProperty("chat_model", chat.modelName);
     widget->setProperty("chat_content", chat.content);
+    // 缓存完整对象：只靠字符串属性回传会丢失 chatId / thinkContent / responseContent
+    widget->setProperty("chat_data", QVariant::fromValue(chat));
     
     return widget;
 }
@@ -814,19 +816,16 @@ void LeftPanel::onChatItemClicked() {
     QWidget* widget = qobject_cast<QWidget*>(sender());
     if (!widget) return;
     
-    int chatId = widget->property("chat_id").toInt();
-    QString prompt = widget->property("chat_prompt").toString();
-    QString timeStr = widget->property("chat_time").toString();
-    QString modelName = widget->property("chat_model").toString();
-    QString content = widget->property("chat_content").toString();
-    
-    // 创建 ChatHistory 对象
-    ChatHistory chat;
-    chat.id = chatId;
-    chat.prompt = prompt;
-    chat.createTime = QDateTime::fromString(timeStr, Qt::ISODate);
-    chat.modelName = modelName;
-    chat.content = content;
+    // 优先取完整对象，保证 chatId / thinkContent / responseContent 不丢失
+    ChatHistory chat = widget->property("chat_data").value<ChatHistory>();
+    if (!chat.isValid()) {
+        chat.id = widget->property("chat_id").toInt();
+        chat.prompt = widget->property("chat_prompt").toString();
+        chat.createTime = QDateTime::fromString(
+            widget->property("chat_time").toString(), Qt::ISODate);
+        chat.modelName = widget->property("chat_model").toString();
+        chat.content = widget->property("chat_content").toString();
+    }
     
     // 发射信号
     emit chatSelected(chat);
@@ -848,20 +847,16 @@ bool LeftPanel::eventFilter(QObject* watched, QEvent* event) {
         if (watched->objectName().startsWith("chat_item_")) {
             QWidget* widget = qobject_cast<QWidget*>(watched);
             if (widget) {
-                int chatId = widget->property("chat_id").toInt();
-                QString prompt = widget->property("chat_prompt").toString();
-                QString timeStr = widget->property("chat_time").toString();
-                QString modelName = widget->property("chat_model").toString();
-                QString content = widget->property("chat_content").toString();
-                QString chatIdStr = widget->property("chat_id_str").toString();  // 添加 chatId 字符串
-                
-                ChatHistory chat;
-                chat.id = chatId;
-                chat.chatId = chatIdStr;  // 设置 chatId
-                chat.prompt = prompt;
-                chat.createTime = QDateTime::fromString(timeStr, Qt::ISODate);
-                chat.modelName = modelName;
-                chat.content = content;
+                // 优先取完整对象，保证 chatId / thinkContent / responseContent 不丢失
+                ChatHistory chat = widget->property("chat_data").value<ChatHistory>();
+                if (!chat.isValid()) {
+                    chat.id = widget->property("chat_id").toInt();
+                    chat.prompt = widget->property("chat_prompt").toString();
+                    chat.createTime = QDateTime::fromString(
+                        widget->property("chat_time").toString(), Qt::ISODate);
+                    chat.modelName = widget->property("chat_model").toString();
+                    chat.content = widget->property("chat_content").toString();
+                }
                 
                 emit chatSelected(chat);
                 return true;

@@ -42,7 +42,7 @@ RightPanel::RightPanel(QWidget *parent)
     , isReceivingMessage(false)
     , currentMessageId(0)
 {
-    setStyleSheet("background-color: white;");
+    setStyleSheet("background-color: " + Colors::WHITE_COLOR.name() + ";");
     
     // 生成初始会话ID
     generateNewChatId();
@@ -68,7 +68,7 @@ RightPanel::RightPanel(QWidget *parent)
 void RightPanel::setupUI() {
     mainLayout = new QVBoxLayout(this);
     // 统一使用 PAGE_PADDING 作为外边距
-    mainLayout->setContentsMargins(Dimens::PAGE_PADDING/2, 
+    mainLayout->setContentsMargins(Dimens::PAGE_PADDING, 
                                    Dimens::PAGE_PADDING, 
                                    Dimens::PAGE_PADDING, 
                                    Dimens::PAGE_PADDING);
@@ -92,7 +92,7 @@ void RightPanel::setupMessageArea() {
     messageScrollArea = new QScrollArea(this);
     messageScrollArea->setWidgetResizable(true);
     messageScrollArea->setFrameShape(QFrame::NoFrame);
-    messageScrollArea->setStyleSheet("QScrollArea { background-color: white; border: none; }");
+    messageScrollArea->setStyleSheet("QScrollArea { background-color: " + Colors::WHITE_COLOR.name() + "; border: none; }");
     messageScrollArea->verticalScrollBar()->setStyleSheet(
         "QScrollBar:vertical {"
         "   background-color: transparent;"
@@ -113,7 +113,7 @@ void RightPanel::setupMessageArea() {
     );
     
     messageContainer = new QWidget();
-    messageContainer->setStyleSheet("background-color: white;");
+    messageContainer->setStyleSheet("background-color: " + Colors::WHITE_COLOR.name() + ";");
     
     messageLayout = new QVBoxLayout(messageContainer);
     // 消息容器内部边距统一使用 PAGE_PADDING
@@ -180,7 +180,7 @@ void RightPanel::setupInputArea() {
     inputContainer->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Minimum);
     inputContainer->setStyleSheet(QString(
         "QWidget {"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "   border: 1px solid %1;"
         "   border-radius: %2px;"
         "}"
@@ -309,7 +309,7 @@ void RightPanel::setupModelSelection() {
     modelLayout = new QHBoxLayout(modelContainer);
     modelLayout->setContentsMargins(0, 0, 0, 0);
     // 模型名称和箭头按钮之间的间距统一使用 SMALL_MARGIN
-    modelLayout->setSpacing(Dimens::SMALL_MARGIN);
+    modelLayout->setSpacing(Dimens::PAGE_PADDING);
     
     modelNameBtn = new QPushButton("加载模型中...", modelContainer);
     modelNameBtn->setCursor(Qt::PointingHandCursor);
@@ -407,7 +407,7 @@ void RightPanel::createFunctionButtons(QHBoxLayout* layout) {
     deepThinkBtn->setChecked(false);
     deepThinkBtn->setStyleSheet(QString(
         "QPushButton {"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "   color: %1;"
         "   border: 1px solid %1;"
         "   border-radius: %2px;"
@@ -416,7 +416,7 @@ void RightPanel::createFunctionButtons(QHBoxLayout* layout) {
         "}"
         "QPushButton:checked {"
         "   background-color: %5;"
-        "   color: white;"
+        "   color: " + Colors::WHITE_COLOR.name() + ";"
         "   border: 1px solid %5;"
         "}"
     ).arg(Colors::GRAY_COLOR.name())
@@ -434,7 +434,7 @@ void RightPanel::createFunctionButtons(QHBoxLayout* layout) {
     searchDocBtn->setChecked(false);
     searchDocBtn->setStyleSheet(QString(
         "QPushButton {"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "   color: %1;"
         "   border: 1px solid %1;"
         "   border-radius: %2px;"
@@ -443,7 +443,7 @@ void RightPanel::createFunctionButtons(QHBoxLayout* layout) {
         "}"
         "QPushButton:checked {"
         "   background-color: %5;"
-        "   color: white;"
+        "   color: " + Colors::WHITE_COLOR.name() + ";"
         "   border: 1px solid %5;"
         "}"
     ).arg(Colors::GRAY_COLOR.name())
@@ -462,7 +462,7 @@ void RightPanel::createFunctionButtons(QHBoxLayout* layout) {
     docSelectionBtn->setChecked(false);
     docSelectionBtn->setStyleSheet(QString(
         "QPushButton {"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "   color: %1;"
         "   border: 1px solid %1;"
         "   border-radius: %2px;"
@@ -471,7 +471,7 @@ void RightPanel::createFunctionButtons(QHBoxLayout* layout) {
         "}"
         "QPushButton:checked {"
         "   background-color: %5;"
-        "   color: white;"
+        "   color: " + Colors::WHITE_COLOR.name() + ";"
         "   border: 1px solid %5;"
         "}"
     ).arg(Colors::GRAY_COLOR.name())
@@ -1062,7 +1062,7 @@ void RightPanel::addAssistantMessage() {
     QWidget* contentWidget = new QWidget(messageWidget);
     QVBoxLayout* contentLayout = new QVBoxLayout(contentWidget);
     contentLayout->setContentsMargins(0, 0, 0, 0);
-    contentLayout->setSpacing(Dimens::SMALL_MARGIN);
+    contentLayout->setSpacing(Dimens::PAGE_PADDING);
 
     // 思考内容标签
     QLabel* thinkLabel = new QLabel(contentWidget);
@@ -1295,7 +1295,7 @@ void RightPanel::showModelPopupMenu() {
     QMenu menu(this);
     menu.setStyleSheet(QString(
         "QMenu {"
-        "   background-color: white;"
+        "   background-color: " + Colors::WHITE_COLOR.name() + ";"
         "   border: 1px solid %1;"
         "   border-radius: %2px;"
         "   padding: %3px;"
@@ -1308,11 +1308,11 @@ void RightPanel::showModelPopupMenu() {
         "}"
         "QMenu::item:selected {"
         "   background-color: %7;"
-        "   color: white;"
+        "   color: " + Colors::WHITE_COLOR.name() + ";"
         "}"
     ).arg(Colors::LINE_COLOR.name())
-     .arg(Dimens::SMALL_MARGIN)
-     .arg(Dimens::SMALL_MARGIN)
+     .arg(Dimens::PAGE_PADDING)
+     .arg(Dimens::PAGE_PADDING)
      .arg(Dimens::PAGE_PADDING)
      .arg(Colors::TEXT_COLOR.name())
      .arg(Dimens::FONT_SIZE_NORMAL)
@@ -1499,7 +1499,7 @@ void RightPanel::updateButtonsStyle() {
         deepThinkBtn->setStyleSheet(QString(
             "QPushButton {"
             "   background-color: %1;"
-            "   color: white;"
+            "   color: " + Colors::WHITE_COLOR.name() + ";"
             "   border: 1px solid %1;"
             "   border-radius: %2px;"
             "   font-size: %3px;"
@@ -1512,7 +1512,7 @@ void RightPanel::updateButtonsStyle() {
     } else {
         deepThinkBtn->setStyleSheet(QString(
             "QPushButton {"
-            "   background-color: white;"
+            "   background-color: " + Colors::WHITE_COLOR.name() + ";"
             "   color: %1;"
             "   border: 1px solid %1;"
             "   border-radius: %2px;"
@@ -1530,7 +1530,7 @@ void RightPanel::updateButtonsStyle() {
         searchDocBtn->setStyleSheet(QString(
             "QPushButton {"
             "   background-color: %1;"
-            "   color: white;"
+            "   color: " + Colors::WHITE_COLOR.name() + ";"
             "   border: 1px solid %1;"
             "   border-radius: %2px;"
             "   font-size: %3px;"
@@ -1543,7 +1543,7 @@ void RightPanel::updateButtonsStyle() {
     } else {
         searchDocBtn->setStyleSheet(QString(
             "QPushButton {"
-            "   background-color: white;"
+            "   background-color: " + Colors::WHITE_COLOR.name() + ";"
             "   color: %1;"
             "   border: 1px solid %1;"
             "   border-radius: %2px;"
@@ -1561,7 +1561,7 @@ void RightPanel::updateButtonsStyle() {
         docSelectionBtn->setStyleSheet(QString(
             "QPushButton {"
             "   background-color: %1;"
-            "   color: white;"
+            "   color: " + Colors::WHITE_COLOR.name() + ";"
             "   border: 1px solid %1;"
             "   border-radius: %2px;"
             "   font-size: %3px;"
@@ -1574,7 +1574,7 @@ void RightPanel::updateButtonsStyle() {
     } else {
         docSelectionBtn->setStyleSheet(QString(
             "QPushButton {"
-            "   background-color: white;"
+            "   background-color: " + Colors::WHITE_COLOR.name() + ";"
             "   color: %1;"
             "   border: 1px solid %1;"
             "   border-radius: %2px;"
@@ -1649,7 +1649,7 @@ void RightPanel::loadChatHistory(const ChatHistory& chat) {
         QWidget* contentWidget = new QWidget(messageWidget);
         QVBoxLayout* contentLayout = new QVBoxLayout(contentWidget);
         contentLayout->setContentsMargins(0, 0, 0, 0);
-        contentLayout->setSpacing(Dimens::SMALL_MARGIN);
+        contentLayout->setSpacing(Dimens::PAGE_PADDING);
 
         // 思考内容标签
         QLabel* thinkLabel = new QLabel(contentWidget);

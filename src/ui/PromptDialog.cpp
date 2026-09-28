@@ -40,7 +40,8 @@ namespace {
     }
 
     // 把图标的形状重新着色后再加透明。
-    // icon_close.png 本身是纯白色（原用途是配彩色底），直接画在白色卡片上会看不见。
+    // icon_close.png 的源色会随素材变化，直接用它画在白色卡片上可能看不见，
+    // 所以这里统一按目标色重绘。
     QIcon tintedIcon(const QString& path, const QColor& color, double opacity = 0.5) {
         QPixmap src(path);
         if (src.isNull()) return QIcon();

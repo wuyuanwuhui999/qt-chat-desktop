@@ -201,10 +201,20 @@ void DirectoryDialog::updateCreateInputButtonsStyle()
      .arg(Dimens::BTN_HEIGHT / 2)
      .arg(Colors::PRIMARY_COLOR.lighter(110).name()));
 
-    // 关闭按钮样式
+    // 关闭按钮样式：把图标统一着成白色再贴上去。
+    // icon_close.png 的源色是会变的（现在是深色），直接用会出现深色叉配橙色底，
+    // 所以这里固定着白，保证无论源图什么颜色都是"白叉 + 橙底"。
     QPixmap closePixmap(":/images/icon_close.png");
     if (!closePixmap.isNull()) {
-        QPixmap scaledPixmap = closePixmap.scaled(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE,
+        QPixmap whitePixmap(closePixmap.size());
+        whitePixmap.fill(Qt::transparent);
+        QPainter closePainter(&whitePixmap);
+        closePainter.drawPixmap(0, 0, closePixmap);
+        closePainter.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        closePainter.fillRect(whitePixmap.rect(), Colors::WHITE_COLOR);
+        closePainter.end();
+
+        QPixmap scaledPixmap = whitePixmap.scaled(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE,
                                                   Qt::KeepAspectRatio, Qt::SmoothTransformation);
         closeCreateBtn->setIcon(QIcon(scaledPixmap));
         closeCreateBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));

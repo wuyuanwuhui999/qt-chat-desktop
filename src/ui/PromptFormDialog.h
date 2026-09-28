@@ -4,7 +4,6 @@
 #include <QDialog>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QLabel>
 #include <QPushButton>
 #include <QTextEdit>
 #include "models/Prompt.h"
@@ -39,7 +38,6 @@ private:
     Prompt m_prompt;   // Update 模式下为待编辑的提示词
 
     QVBoxLayout* m_mainLayout;
-    QLabel* m_titleLabel;
     QWidget* m_contentWidget;
     QVBoxLayout* m_contentLayout;
     QWidget* m_card;

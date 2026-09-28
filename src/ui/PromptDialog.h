@@ -9,6 +9,7 @@
 #include <QPushButton>
 #include <QScrollArea>
 #include <QTimer>
+#include <QPoint>
 #include <QHash>
 #include <QList>
 #include "models/Prompt.h"
@@ -25,6 +26,10 @@ public:
 
     // 当前“使用中”的提示词 id（点击确定后由外层读取）
     QString selectedPromptId() const { return m_usedPromptId; }
+
+protected:
+    // 无边框窗口：拖动自绘标题栏来移动窗口
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private slots:
     void onSearchTextChanged();
@@ -64,9 +69,15 @@ private:
     QHash<QString, QWidget*> m_itemWidgets;   // promptId -> 条目控件
 
     QVBoxLayout* m_mainLayout;
-    QLabel* m_titleLabel;
+    QWidget* m_root;              // 无边框窗口的内容容器（承载阴影与圆角）
+    QWidget* m_titleBar;          // 自绘标题栏（标题 + 刷新/新增/关闭）
+    QLabel* m_titleBarTitle;
     QPushButton* m_refreshBtn;
     QPushButton* m_addBtn;
+    QPushButton* m_closeBtn;
+
+    bool m_dragging;              // 是否正在拖动窗口
+    QPoint m_dragOffset;
 
     QWidget* m_contentWidget;
     QVBoxLayout* m_contentLayout;

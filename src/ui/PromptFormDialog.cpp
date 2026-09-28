@@ -32,24 +32,7 @@ void PromptFormDialog::setupUI()
                                      Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
     m_mainLayout->setSpacing(Dimens::PAGE_PADDING);
 
-    // 标题栏
-    m_titleLabel = new QLabel(m_mode == Add ? "添加提示词" : "更新提示词", this);
-    m_titleLabel->setStyleSheet(QString(
-        "color: %1;"
-        "font-size: %2px;"
-        "font-weight: bold;"
-        "background-color: transparent;"
-    ).arg(Colors::TEXT_COLOR.name())
-     .arg(Dimens::FONT_SIZE_BIG));
-    m_mainLayout->addWidget(m_titleLabel);
-
-    QFrame* headerLine = new QFrame(this);
-    headerLine->setFrameShape(QFrame::HLine);
-    headerLine->setFrameShadow(QFrame::Plain);
-    headerLine->setStyleSheet(
-        QString("background-color: %1; border: none; max-height: 1px; min-height: 1px;")
-            .arg(Colors::GRAY_COLOR.name()));
-    m_mainLayout->addWidget(headerLine);
+    // 标题由窗口自身标题栏显示（setWindowTitle），内容区不再重复画一遍标题
 
     // 内容区（灰底，占满剩余空间）
     m_contentWidget = new QWidget(this);

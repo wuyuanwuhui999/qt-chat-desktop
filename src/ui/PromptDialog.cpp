@@ -13,11 +13,15 @@
 #include <QPainter>
 #include <QPointer>
 #include <QFontMetrics>
+#include <QGraphicsDropShadowEffect>
+#include <QMouseEvent>
+#include <QEvent>
 #include <QDebug>
 
 namespace {
     const int kDialogWidth  = 760;
     const int kDialogHeight = 640;
+    const int kShadowMargin = 16;          // 无边框窗口四周留给阴影的空白
     const int kScrollBarWidth = 8;
     const int kUseButtonWidth = 90;
     const int kScrollLoadThreshold = 40;   // 距底部多少像素触发加载更多
@@ -132,9 +136,17 @@ PromptDialog::PromptDialog(const QString& tenantId,
     , m_total(0)
     , m_isLoading(false)
     , m_hasMore(true)
+    , m_root(nullptr)
+    , m_titleBar(nullptr)
+    , m_titleBarTitle(nullptr)
+    , m_refreshBtn(nullptr)
+    , m_addBtn(nullptr)
+    , m_closeBtn(nullptr)
+    , m_dragging(false)
 {
     setWindowTitle("提示词");
-    setFixedSize(kDialogWidth, kDialogHeight);
+    // 无边框：标题与刷新/新增图标都画在自绘标题栏里，四周留出阴影空间
+    setFixedSize(kDialogWidth + kShadowMargin * 2, kDialogHeight + kShadowMargin * 2);
     setModal(true);
 
     // 条目文本宽度：对话框宽度减去各级间距、三个操作按钮与滚动条
@@ -152,7 +164,36 @@ PromptDialog::PromptDialog(const QString& tenantId,
 
 void PromptDialog::setupUI()
 {
-    m_mainLayout = new QVBoxLayout(this);
+    // 无边框窗口 + 阴影：这样才能把刷新/新增图标放进标题栏右侧
+    setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
+    setAttribute(Qt::WA_TranslucentBackground);
+
+    QVBoxLayout* outerLayout = new QVBoxLayout(this);
+    outerLayout->setContentsMargins(kShadowMargin, kShadowMargin, kShadowMargin, kShadowMargin);
+    outerLayout->setSpacing(0);
+
+    m_root = new QWidget(this);
+    m_root->setObjectName("promptDialogRoot");
+    m_root->setStyleSheet(QString(
+        "QWidget#promptDialogRoot {"
+        "   background-color: %1;"
+        "   border-radius: %2px;"
+        "}"
+    ).arg(Colors::WHITE_COLOR.name())
+     .arg(Dimens::MODULE_BORDER_RADIUS));
+
+    // 用主题文字色加透明度作为阴影颜色，避免硬编码颜色
+    QColor shadowColor = Colors::TEXT_COLOR;
+    shadowColor.setAlpha(70);
+    QGraphicsDropShadowEffect* shadow = new QGraphicsDropShadowEffect(m_root);
+    shadow->setBlurRadius(kShadowMargin);
+    shadow->setOffset(0, 2);
+    shadow->setColor(shadowColor);
+    m_root->setGraphicsEffect(shadow);
+
+    outerLayout->addWidget(m_root);
+
+    m_mainLayout = new QVBoxLayout(m_root);
     m_mainLayout->setContentsMargins(Dimens::PAGE_PADDING, Dimens::PAGE_PADDING,
                                      Dimens::PAGE_PADDING, Dimens::PAGE_PADDING);
     m_mainLayout->setSpacing(Dimens::PAGE_PADDING);
@@ -170,16 +211,19 @@ void PromptDialog::setupUI()
 
 QWidget* PromptDialog::createHeaderArea()
 {
-    QWidget* header = new QWidget(this);
-    header->setStyleSheet("background-color: transparent;");
+    // 自绘标题栏：标题在左，刷新 / 新增 / 关闭在右；按住这条可拖动窗口
+    m_titleBar = new QWidget(m_root);
+    m_titleBar->setObjectName("promptDialogTitleBar");
+    m_titleBar->setStyleSheet("background-color: transparent;");
+    m_titleBar->installEventFilter(this);
 
-    QHBoxLayout* layout = new QHBoxLayout(header);
+    QHBoxLayout* layout = new QHBoxLayout(m_titleBar);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(Dimens::PAGE_PADDING);
 
     // 标题
-    m_titleLabel = new QLabel("提示词", header);
-    m_titleLabel->setStyleSheet(QString(
+    m_titleBarTitle = new QLabel("提示词", m_titleBar);
+    m_titleBarTitle->setStyleSheet(QString(
         "color: %1;"
         "font-size: %2px;"
         "font-weight: bold;"
@@ -188,7 +232,7 @@ QWidget* PromptDialog::createHeaderArea()
      .arg(Dimens::FONT_SIZE_BIG));
 
     // 刷新图标
-    m_refreshBtn = new QPushButton(header);
+    m_refreshBtn = new QPushButton(m_titleBar);
     m_refreshBtn->setCursor(Qt::PointingHandCursor);
     m_refreshBtn->setFixedSize(Dimens::BTN_HEIGHT, Dimens::BTN_HEIGHT);
     m_refreshBtn->setToolTip("刷新");
@@ -197,7 +241,7 @@ QWidget* PromptDialog::createHeaderArea()
     m_refreshBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
 
     // 新增图标
-    m_addBtn = new QPushButton(header);
+    m_addBtn = new QPushButton(m_titleBar);
     m_addBtn->setCursor(Qt::PointingHandCursor);
     m_addBtn->setFixedSize(Dimens::BTN_HEIGHT, Dimens::BTN_HEIGHT);
     m_addBtn->setToolTip("新增提示词");
@@ -205,16 +249,28 @@ QWidget* PromptDialog::createHeaderArea()
     m_addBtn->setIcon(transparentIcon(":/images/icon_add.png"));
     m_addBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
 
-    layout->addWidget(m_titleLabel);
+    // 关闭图标（无边框窗口没有系统关闭按钮，需要自己画一个）
+    m_closeBtn = new QPushButton(m_titleBar);
+    m_closeBtn->setCursor(Qt::PointingHandCursor);
+    m_closeBtn->setFixedSize(Dimens::BTN_HEIGHT, Dimens::BTN_HEIGHT);
+    m_closeBtn->setToolTip("关闭");
+    m_closeBtn->setStyleSheet("QPushButton { background-color: transparent; border: none; }");
+    m_closeBtn->setIcon(tintedIcon(":/images/icon_close.png", Colors::SUB_TITLE_COLOR));
+    m_closeBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
+
+    layout->addWidget(m_titleBarTitle);
     layout->addStretch();
     layout->addWidget(m_refreshBtn);
     layout->addWidget(m_addBtn);
+    layout->addWidget(m_closeBtn);
 
     connect(m_refreshBtn, &QPushButton::clicked, this, &PromptDialog::onRefreshClicked);
     connect(m_addBtn, &QPushButton::clicked, this, &PromptDialog::onAddClicked);
+    // 关闭等同取消
+    connect(m_closeBtn, &QPushButton::clicked, this, &QDialog::reject);
 
     // 标题栏与内容区之间的分隔线
-    QWidget* wrapper = new QWidget(this);
+    QWidget* wrapper = new QWidget(m_root);
     wrapper->setStyleSheet("background-color: transparent;");
     QVBoxLayout* wrapperLayout = new QVBoxLayout(wrapper);
     wrapperLayout->setContentsMargins(0, 0, 0, 0);
@@ -227,15 +283,40 @@ QWidget* PromptDialog::createHeaderArea()
         QString("background-color: %1; border: none; max-height: 1px; min-height: 1px;")
             .arg(Colors::GRAY_COLOR.name()));
 
-    wrapperLayout->addWidget(header);
+    wrapperLayout->addWidget(m_titleBar);
     wrapperLayout->addWidget(line);
     return wrapper;
+}
+
+bool PromptDialog::eventFilter(QObject* watched, QEvent* event)
+{
+    // 无边框窗口只能自己实现拖动：按住标题栏移动窗口
+    if (watched == m_titleBar) {
+        if (event->type() == QEvent::MouseButtonPress) {
+            QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+            if (mouseEvent->button() == Qt::LeftButton) {
+                m_dragging = true;
+                m_dragOffset = mouseEvent->globalPosition().toPoint() - frameGeometry().topLeft();
+                return true;
+            }
+        } else if (event->type() == QEvent::MouseMove) {
+            QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+            if (m_dragging && (mouseEvent->buttons() & Qt::LeftButton)) {
+                move(mouseEvent->globalPosition().toPoint() - m_dragOffset);
+                return true;
+            }
+        } else if (event->type() == QEvent::MouseButtonRelease) {
+            m_dragging = false;
+            return true;
+        }
+    }
+    return QDialog::eventFilter(watched, event);
 }
 
 QWidget* PromptDialog::createContentArea()
 {
     // 内容区：灰底，标准内间距
-    m_contentWidget = new QWidget(this);
+    m_contentWidget = new QWidget(m_root);
     m_contentWidget->setObjectName("promptDialogContent");
     m_contentWidget->setStyleSheet(QString(
         "QWidget#promptDialogContent {"

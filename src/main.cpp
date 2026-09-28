@@ -41,6 +41,12 @@ int main(int argc, char *argv[]) {
         }
     };
 
+    // 全屏显示（页面内部自己把内容卡片居中）
+    auto showFullPage = [&stackedWidget](QWidget* page) {
+        stackedWidget.setCurrentWidget(page);
+        stackedWidget.showMaximized();
+    };
+
     // 全屏显示 HomeWindow
     auto showHomePage = [&stackedWidget, &homeWindow]() {
         if (!homeWindow) {
@@ -57,12 +63,13 @@ int main(int argc, char *argv[]) {
     });
 
     // 已有有效 token 时也要先选公司（会用缓存里的公司 id 自动选中）
+    // 公司选择页全屏显示，卡片在页面内部居中
     QObject::connect(welcomeWindow, &WelcomeWindow::companyRequired, [&]() {
-        showFittedPage(companyWindow);
+        showFullPage(companyWindow);
     });
 
     QObject::connect(loginWindow, &LoginWindow::loginSuccess, [&]() {
-        showFittedPage(companyWindow);
+        showFullPage(companyWindow);
     });
 
     QObject::connect(companyWindow, &CompanyWindow::companySelected, [&](const QString&) {

@@ -39,24 +39,6 @@ namespace {
         return QIcon(out);
     }
 
-    // 把图标的形状重新着色后再加透明。
-    // icon_close.png 的源色会随素材变化，直接用它画在白色卡片上可能看不见，
-    // 所以这里统一按目标色重绘。
-    QIcon tintedIcon(const QString& path, const QColor& color, double opacity = 0.5) {
-        QPixmap src(path);
-        if (src.isNull()) return QIcon();
-        QPixmap out(src.size());
-        out.fill(Qt::transparent);
-        QPainter painter(&out);
-        painter.setOpacity(opacity);
-        painter.drawPixmap(0, 0, src);
-        // 保留原有 alpha，把颜色替换成目标色
-        painter.setCompositionMode(QPainter::CompositionMode_SourceIn);
-        painter.fillRect(out.rect(), color);
-        painter.end();
-        return QIcon(out);
-    }
-
     // 文本框样式（用于条目上的操作按钮）
     QString itemButtonStyle(const QColor& borderColor,
                             const QColor& textColor,
@@ -251,12 +233,13 @@ QWidget* PromptDialog::createHeaderArea()
     m_addBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
 
     // 关闭图标（无边框窗口没有系统关闭按钮，需要自己画一个）
+    // 不覆盖颜色，直接用图标自身的颜色，保证和刷新/新增等图标颜色统一
     m_closeBtn = new QPushButton(m_titleBar);
     m_closeBtn->setCursor(Qt::PointingHandCursor);
     m_closeBtn->setFixedSize(Dimens::BTN_HEIGHT, Dimens::BTN_HEIGHT);
     m_closeBtn->setToolTip("关闭");
     m_closeBtn->setStyleSheet("QPushButton { background-color: transparent; border: none; }");
-    m_closeBtn->setIcon(tintedIcon(":/images/icon_close.png", Colors::SUB_TITLE_COLOR));
+    m_closeBtn->setIcon(transparentIcon(":/images/icon_close.png"));
     m_closeBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
 
     layout->addWidget(m_titleBarTitle);
@@ -559,13 +542,13 @@ void PromptDialog::addPromptItem(const Prompt& prompt)
     textLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
     textLabel->setText(elideToLines(prompt.prompt, textLabel->font(), m_textWidth, 3));
 
-    // 删除
+    // 删除：用图标自身的颜色，与关闭/编辑等图标保持统一
     QPushButton* deleteBtn = new QPushButton(item);
     deleteBtn->setCursor(Qt::PointingHandCursor);
     deleteBtn->setFixedSize(Dimens::BTN_HEIGHT, Dimens::BTN_HEIGHT);
     deleteBtn->setToolTip("删除");
     deleteBtn->setStyleSheet("QPushButton { background-color: transparent; border: none; }");
-    deleteBtn->setIcon(tintedIcon(":/images/icon_close.png", Colors::WARN_COLOR));
+    deleteBtn->setIcon(transparentIcon(":/images/icon_close.png"));
     deleteBtn->setIconSize(QSize(Dimens::SMALL_ICON_SIZE, Dimens::SMALL_ICON_SIZE));
 
     // 编辑

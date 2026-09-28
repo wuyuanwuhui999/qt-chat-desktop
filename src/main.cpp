@@ -63,12 +63,15 @@ int main(int argc, char *argv[]) {
     });
 
     // 已有有效 token 时也要先选公司（会用缓存里的公司 id 自动选中）
-    // 公司选择页全屏显示，卡片在页面内部居中
+    // 进入页面时用当前 token 重新拉一次公司列表
     QObject::connect(welcomeWindow, &WelcomeWindow::companyRequired, [&]() {
+        companyWindow->loadCompanyList();
         showFullPage(companyWindow);
     });
 
+    // 登录成功后 token 变了，必须重新拉公司列表
     QObject::connect(loginWindow, &LoginWindow::loginSuccess, [&]() {
+        companyWindow->loadCompanyList();
         showFullPage(companyWindow);
     });
 

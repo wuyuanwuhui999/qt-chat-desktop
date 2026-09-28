@@ -20,12 +20,18 @@ public:
 signals:
     void companySelected(const QString& companyId);
 
+public:
+    // 加载公司列表。
+    // 必须在进入页面时调用（登录成功 / 已有 token 通过校验后），
+    // 不能只在构造函数里拉一次：启动时往往还没有有效 token，
+    // 那一次请求会 401，之后又没有人重新请求，页面就一直是空的。
+    void loadCompanyList();
+
 private slots:
     void onConfirmClicked();
 
 private:
     void setupUI();
-    void loadCompanyList();
     void addCompanyItem(const Company& company);
     void clearCompanyList();
     void selectCompanyById(const QString& companyId);

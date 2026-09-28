@@ -38,8 +38,10 @@ void NetworkManager::bindReply(QNetworkReply* reply,
                                const SuccessCallback& successCallback,
                                const ErrorCallback& errorCallback) {
     connect(reply, &QNetworkReply::finished, [reply, successCallback, errorCallback]() {
+        const QByteArray body = reply->readAll();
+
         if (reply->error() == QNetworkReply::NoError) {
-            ApiResponse response = NetworkManager::instance().parseResponse(reply->readAll());
+            ApiResponse response = NetworkManager::instance().parseResponse(body);
 
             // 如果返回了新token，更新缓存
             if (!response.token.isEmpty()) {
@@ -52,7 +54,12 @@ void NetworkManager::bindReply(QNetworkReply* reply,
             }
         } else {
             if (errorCallback) {
-                errorCallback(reply->errorString());
+                // 后端出错时也会返回 ResultEntity（例如 401 -> {"status":"FAIL","msg":"无效的认证令牌"}），
+                // 优先把里面的 msg 报出来，比 Qt 的 errorString 有信息量得多
+                const ApiResponse response = NetworkManager::instance().parseResponse(body);
+                const QString message = response.message.isEmpty() ? reply->errorString()
+                                                                  : response.message;
+                errorCallback(message);
             }
         }
         reply->deleteLater();

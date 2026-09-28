@@ -25,7 +25,10 @@ CompanyWindow::CompanyWindow(QWidget *parent)
     setPalette(palette);
 
     setupUI();
-    loadCompanyList();
+    // 注意：这里不主动请求公司列表。
+    // 页面在程序启动时就被构造，那一刻往往还没有有效 token，
+    // 提前请求会 401（并弹出一个莫名其妙的错误框）；
+    // 真正的加载放在进入页面时由 main.cpp 调用 loadCompanyList()。
 }
 
 void CompanyWindow::setupUI() {

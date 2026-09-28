@@ -44,6 +44,8 @@ add_executable(chat
     src/ui/PromptDialog.cpp
     src/ui/PromptFormDialog.h
     src/ui/PromptFormDialog.cpp
+    src/ui/DocPermissionDialog.h
+    src/ui/DocPermissionDialog.cpp
 
     # 模型类
     src/models/ApiResponse.h

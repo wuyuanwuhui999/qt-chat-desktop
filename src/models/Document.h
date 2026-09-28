@@ -16,6 +16,8 @@ public:
     QString name;
     QString ext;
     QString userId;
+    QString companyId;
+    QString permission;   // private / tenant / company
     QString createTime;
     QString updateTime;
     

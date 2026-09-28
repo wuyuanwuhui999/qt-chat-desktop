@@ -55,6 +55,9 @@ namespace Constants {
         const QString UPLOAD_DOC = "/service/chat/uploadDoc/%1/%2";  // 需要传入 tenantId 和 directoryId
 
         const QString GET_DOC_LIST_BY_DIR_ID = "/service/chat/getDocListByDirId";
+        const QString GET_PUBLIC_DOC_LIST = "/service/chat/getPublicDocList";
+        const QString UPDATE_DOC_PERMISSION = "/service/chat/updateDocPermission";
+        const QString DELETE_DOC = "/service/chat/deleteDoc/%1";  // 需要传入 docId
 
     }
 

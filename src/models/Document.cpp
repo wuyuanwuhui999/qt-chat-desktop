@@ -11,6 +11,10 @@ Document Document::fromJson(const QJsonObject& json) {
     if (json.contains("name")) doc.name = json["name"].toString();
     if (json.contains("ext")) doc.ext = json["ext"].toString();
     if (json.contains("userId")) doc.userId = json["userId"].toString();
+    if (json.contains("companyId") && !json["companyId"].isNull())
+        doc.companyId = json["companyId"].toString();
+    if (json.contains("permission") && !json["permission"].isNull())
+        doc.permission = json["permission"].toString();
     if (json.contains("createTime") && !json["createTime"].isNull())
         doc.createTime = json["createTime"].toString();
     if (json.contains("updateTime") && !json["updateTime"].isNull())
@@ -27,6 +31,8 @@ QJsonObject Document::toJson() const {
     json["name"] = name;
     json["ext"] = ext;
     json["userId"] = userId;
+    json["companyId"] = companyId;
+    json["permission"] = permission;
     json["createTime"] = createTime;
     json["updateTime"] = updateTime;
     return json;

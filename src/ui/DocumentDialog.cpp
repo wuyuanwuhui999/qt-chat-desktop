@@ -755,11 +755,17 @@ void DocumentDialog::removeDocumentFromUI(const QString& docId)
 
 void DocumentDialog::loadPublicDocList()
 {
-    qDebug() << "Loading public doc list from:" << Constants::Endpoints::GET_PUBLIC_DOC_LIST;
+    // 公共文档按当前租户 + 当前公司两个维度过滤
+    const QString companyId =
+        TokenManager::instance().getValue(Constants::CURRENT_COMPANY_ID_KEY).toString();
+    const QString endpoint = Constants::withQuery(Constants::Endpoints::GET_PUBLIC_DOC_LIST,
+                                                  {{"tenantId", m_tenantId},
+                                                   {"companyId", companyId}});
+    qDebug() << "Loading public doc list from:" << endpoint;
 
     QPointer<DocumentDialog> self(this);
     NetworkManager::instance().get(
-        Constants::Endpoints::GET_PUBLIC_DOC_LIST,
+        endpoint,
         [this, self](const ApiResponse& response) {
             if (!self) return;
 
